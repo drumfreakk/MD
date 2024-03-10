@@ -8,6 +8,7 @@ pub struct Vector {
 	pub z: f32,
 }
 
+#[allow(dead_code)]
 impl Vector {
 	pub fn len(&self) -> f32 {
 		return self.sqlen().sqrt();
