@@ -11,37 +11,48 @@ pub struct Vector {
 #[allow(dead_code)]
 impl Vector {
 	pub fn len(&self) -> f32 {
-		return self.sqlen().sqrt();
+		self.sqlen().sqrt()
 	}
 	
 	pub fn sqlen(&self) -> f32 {
-		return self.dot(self);
+		self.dot(self)
 	}
 
-	pub fn dot(&self, other: &Vector) -> f32 {
-		return self.x * other.x + self.y * other.y + self.z * other.z;
+	pub fn dot(&self, other: &Self) -> f32 {
+		self.x * other.x + self.y * other.y + self.z * other.z
 	}
 
-	pub fn cross(&self, other: &Vector) -> Vector {
-		return Vector{
+	pub fn cross(&self, other: &Self) -> Self {
+		Vector{
 			x: self.y * other.z - self.z * other.y,
 			y: self.z * other.x - self.x * other.z,
 			z: self.x * other.y - self.y * other.x,
-		};
+		}
 	}
 
-	pub fn norm (&self) -> Vector {
-		return *self / self.len();
+	pub fn norm (&self) -> Self {
+		*self / self.len()
 	}
-}
 
-macro_rules! vector {
-	( $x:expr, $y:expr ) => {
-		vectors::Vector{x: $x as f32, y: $y as f32, z: 0.0}
-	};
-	( $x:expr, $y:expr, $z:expr  ) => {
-		vectors::Vector{x: $x as f32, y: $y as f32, z: $z as f32}
-	};
+    pub fn new(x: f32, y: f32, z: f32) -> Self {
+        Vector{x,y,z}
+    }
+
+    pub fn zero() -> Self {
+        Vector{x: 0.0, y: 0.0, z: 0.0}
+    }
+
+    pub fn unit_x() -> Self {
+        Vector{x: 1.0, y: 0.0, z: 0.0}
+    }
+
+    pub fn unit_y() -> Self {
+        Vector{x: 0.0, y: 1.0, z: 0.0}
+    }
+
+    pub fn unit_z() -> Self {
+        Vector{x: 0.0, y: 0.0, z: 1.0}
+    }
 }
 
 

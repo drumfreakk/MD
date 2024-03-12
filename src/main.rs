@@ -1,27 +1,18 @@
 
 //TODO: Error checking/handling
-//TODO: just use functions to init vectors/particles, using field init shorthand
-//TODO: Self ipv Vector or Particle in impl
-//TODO: private value & public getters?
-//TODO: selfless ass. fn. to init things, use as Vector::new(x,y,z)
 // Either do the "simple" algebraic method with just elastic collisions,
 // or start doing things with energy landscapes
 
-//#[macro_use]
-//mod particles;
-#[macro_use]
 mod vectors;
+mod particles;
+mod output;
 
-//mod output;
+use crate::vectors::Vector;
+use crate::particles::Particle;
 
 fn main () {
-    
-/*	let mut p = [particle!(vector!(0,0)), particle!(vector!(5,0))];
-
-	p[0].r = 1.0;
-	p[0].v = vector!(1,0);
-	p[0].a = vector!(0.5,0);
-	p[1].r = 1.0;
+	let mut p = [Particle::new(&Vector::zero(), 1.0, 0.0, Some(Vector::unit_x()), Some(Vector::unit_x() * 0.5)), 
+                Particle::new(&Vector::new(5.0,0.0,0.0), 1.0, 0.0, None, None)];
 
 	for i in 0..300 {
 		let d = p[0].collision_dist(&p[1]);
@@ -34,6 +25,5 @@ fn main () {
 
 	output::log_position(&p, "out.txt");
 
-        */
-}}
+}
 

@@ -1,6 +1,6 @@
 
 use std::fmt;
-use vectors::Vector;
+use crate::vectors::Vector;
 
 pub struct Particle {
 	pub pos: Vector,	// Position
@@ -10,16 +10,27 @@ pub struct Particle {
 	pub a: Vector,		// Accelleration
 }
 
+#[allow(dead_code)]
 impl Particle {
+    pub fn new(pos: &Vector, r: f32, m: f32, v: Option<Vector>, a: Option<Vector>) -> Self {
+        Particle{
+            pos: *pos,
+            r,
+            m,
+            v: v.unwrap_or(Vector::zero()),
+            a: a.unwrap_or(Vector::zero()),
+        }
+    }
+
 /* Position functions */
 	// Separation vector from self to other
-	pub fn separation(&self, other: &Particle) -> Vector {
+	pub fn separation(&self, other: &Self) -> Vector {
 		return other.pos - self.pos;
 	}
-	pub fn distance(&self, other: &Particle) -> f32 {
+	pub fn distance(&self, other: &Self) -> f32 {
 		return self.separation(other).len();
 	}
-	pub fn collision_dist(&self, other: &Particle) -> f32 {
+	pub fn collision_dist(&self, other: &Self) -> f32 {
 		return self.distance(other) - self.r - other.r;
 	}
 
@@ -38,18 +49,6 @@ impl Particle {
 		self.update_v(dt);
 		self.update_pos(dt);
 	}
-}
-
-macro_rules! particle {
-	( $pos:expr ) => {
-		particles::Particle{
-			pos: $pos,
-			r: 0.0,
-			m: 0.0,
-			v: vector!(0,0),
-			a: vector!(0,0)
-		}
-	};
 }
 
 impl fmt::Display for Particle {
