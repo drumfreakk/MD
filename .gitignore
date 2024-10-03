@@ -12,6 +12,7 @@ Cargo.lock
 
 
 main
-out.txt
+out*
+
 
 *.swp

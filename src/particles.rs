@@ -27,7 +27,10 @@ impl Particle {
 	pub fn separation(&self, other: &Self) -> Vector {
 		return other.pos - self.pos;
 	}
-	pub fn distance(&self, other: &Self) -> f32 {
+	pub fn direction(&self, other: &Self) -> Vector {
+        return self.separation(other).norm(); 
+    }
+    pub fn distance(&self, other: &Self) -> f32 {
 		return self.separation(other).len();
 	}
 	pub fn collision_dist(&self, other: &Self) -> f32 {
