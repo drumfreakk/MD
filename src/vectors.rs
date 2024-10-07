@@ -107,3 +107,13 @@ impl ops::Div<f64> for Vector {
 	}
 }
 
+impl ops::Neg for Vector {
+	type Output = Vector;
+	fn neg(self) -> Vector {
+		Vector{
+			x: -self.x,
+			y: -self.y,
+			z: -self.z,
+		}
+	}
+}

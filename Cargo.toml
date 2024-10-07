@@ -11,9 +11,9 @@ minifb = "0.23.0"
 
 [dependencies.plotters]
 git = "https://github.com/plotters-rs/plotters"
-default_features = false
-features = ["ttf"]
+#default-features = false
+#features = ["ttf"]
 
 [dependencies.plotters-bitmap]
-default_features = false
+default-features = false
 git = "https://github.com/plotters-rs/plotters"
