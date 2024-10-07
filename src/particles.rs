@@ -4,15 +4,15 @@ use crate::vectors::Vector;
 
 pub struct Particle {
 	pub pos: Vector,	// Position
-	pub r: f32,			// Radius
-	pub m: f32,			// Mass
+	pub r: f64,			// Radius
+	pub m: f64,			// Mass
 	pub v: Vector,		// Velocity
 	pub a: Vector,		// Accelleration
 }
 
 #[allow(dead_code)]
 impl Particle {
-    pub fn new(pos: &Vector, r: f32, m: f32, v: Option<Vector>, a: Option<Vector>) -> Self {
+    pub fn new(pos: &Vector, r: f64, m: f64, v: Option<Vector>, a: Option<Vector>) -> Self {
         Particle{
             pos: *pos,
             r,
@@ -30,25 +30,25 @@ impl Particle {
 	pub fn direction(&self, other: &Self) -> Vector {
         return self.separation(other).norm(); 
     }
-    pub fn distance(&self, other: &Self) -> f32 {
+    pub fn distance(&self, other: &Self) -> f64 {
 		return self.separation(other).len();
 	}
-	pub fn collision_dist(&self, other: &Self) -> f32 {
+	pub fn collision_dist(&self, other: &Self) -> f64 {
 		return self.distance(other) - self.r - other.r;
 	}
 
 /* Change position */
-	pub fn update_pos(&mut self, dt: f32) {
+	pub fn update_pos(&mut self, dt: f64) {
 		self.pos = self.pos + self.v * dt
 	}
 
 /* Change velocity */
-	pub fn update_v(&mut self, dt: f32) {
+	pub fn update_v(&mut self, dt: f64) {
 		self.v = self.v + self.a * dt;
 	}
 
 /* Step in time */
-	pub fn update(&mut self, dt: f32){
+	pub fn update(&mut self, dt: f64){
 		self.update_v(dt);
 		self.update_pos(dt);
 	}

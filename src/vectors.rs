@@ -3,22 +3,22 @@ use std::ops;
 
 #[derive(Copy, Clone)]
 pub struct Vector {
-	pub x: f32,
-	pub y: f32,
-	pub z: f32,
+	pub x: f64,
+	pub y: f64,
+	pub z: f64,
 }
 
 #[allow(dead_code)]
 impl Vector {
-	pub fn len(&self) -> f32 {
+	pub fn len(&self) -> f64 {
 		self.sqlen().sqrt()
 	}
 	
-	pub fn sqlen(&self) -> f32 {
+	pub fn sqlen(&self) -> f64 {
 		self.dot(self)
 	}
 
-	pub fn dot(&self, other: &Self) -> f32 {
+	pub fn dot(&self, other: &Self) -> f64 {
 		self.x * other.x + self.y * other.y + self.z * other.z
 	}
 
@@ -34,7 +34,7 @@ impl Vector {
 		*self / self.len()
 	}
 
-    pub fn new(x: f32, y: f32, z: f32) -> Self {
+    pub fn new(x: f64, y: f64, z: f64) -> Self {
         Vector{x,y,z}
     }
 
@@ -85,9 +85,9 @@ impl ops::Sub<Vector> for Vector {
 	}
 }
 
-impl ops::Mul<f32> for Vector {
+impl ops::Mul<f64> for Vector {
 	type Output = Vector;
-	fn mul(self, other: f32) -> Vector {
+	fn mul(self, other: f64) -> Vector {
 		Vector{
 			x: self.x * other,
 			y: self.y * other,
@@ -96,9 +96,9 @@ impl ops::Mul<f32> for Vector {
 	}
 }
 
-impl ops::Div<f32> for Vector {
+impl ops::Div<f64> for Vector {
 	type Output = Vector;
-	fn div(self, other: f32) -> Vector {
+	fn div(self, other: f64) -> Vector {
 		Vector{
 			x: self.x / other,
 			y: self.y / other,
