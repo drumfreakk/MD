@@ -26,7 +26,7 @@ const W: usize = 800;
 const H: usize = 600;
 
 const FRAME_RATE: f64 = 1.0;
-const SIM_LEN: f64 = 10.0;
+const SIM_LEN: f64 = 100.0;
 const TIMESTEP: f64 = 0.005;
 
 fn main () -> Result<(), Box<dyn Error>> {
@@ -70,6 +70,7 @@ fn main () -> Result<(), Box<dyn Error>> {
 	let mut e = [Vec::new(), Vec::new()];
 	let mut F = [Vec::new(), Vec::new(), Vec::new()];
 	let mut etot = Vec::new();
+	let mut sep = Vec::new();
 
 
 	while window.is_open() && !window.is_key_down(Key::Escape) {
@@ -77,6 +78,7 @@ fn main () -> Result<(), Box<dyn Error>> {
 		if epoch - last_flushed <= 1.0 / FRAME_RATE && t < SIM_LEN {
 			pos[0].push((  t, p[0].pos.x));
 			pos[1].push((  t, p[1].pos.x));
+			sep.push((  t, p[1].pos.x - p[0].pos.x));
 			pos_r[0].push((t, p[0].pos.x + p[0].r));
 			pos_r[1].push((t, p[1].pos.x - p[1].r));
 			v[0].push((    t, p[0].v.x));
@@ -133,17 +135,18 @@ fn main () -> Result<(), Box<dyn Error>> {
 					chart.draw_series(LineSeries::new(pos[1].clone(), &RED,))?;
 					chart.draw_series(LineSeries::new(pos_r[0].clone(), &GREEN,))?;
 					chart.draw_series(LineSeries::new(pos_r[1].clone(), &RED,))?;
-					//chart.draw_series(LineSeries::new(v[0].clone(), &CYAN,))?;
-					//chart.draw_series(LineSeries::new(v[1].clone(), &MAGENTA,))?;
+					chart.draw_series(LineSeries::new(sep.clone(), &MAGENTA,))?;
+					chart.draw_series(LineSeries::new(v[0].clone(), &CYAN,))?;
+					chart.draw_series(LineSeries::new(v[1].clone(), &BLUE,))?;
 					//chart.draw_series(LineSeries::new(a[0].clone(), &WHITE,))?;
 					//chart.draw_series(LineSeries::new(a[1].clone(), &YELLOW,))?;
-					chart.draw_series(LineSeries::new(epot[0].clone(),   &BLUE,))?;
-					chart.draw_series(LineSeries::new(epot[1].clone(),   &MAGENTA,))?;
-					chart.draw_series(LineSeries::new(ekin[0].clone(),   &GREEN,))?;
-					chart.draw_series(LineSeries::new(ekin[1].clone(),   &CYAN,))?;
-					chart.draw_series(LineSeries::new(e[0].clone(),   &YELLOW,))?;
-					chart.draw_series(LineSeries::new(e[1].clone(),   &WHITE,))?;
-					chart.draw_series(LineSeries::new(etot.clone(),   &RED,))?;
+					//chart.draw_series(LineSeries::new(epot[0].clone(),   &BLUE,))?;
+					//chart.draw_series(LineSeries::new(epot[1].clone(),   &MAGENTA,))?;
+					chart.draw_series(LineSeries::new(ekin[0].clone(),   &YELLOW,))?;
+					chart.draw_series(LineSeries::new(ekin[1].clone(),   &WHITE,))?;
+					//chart.draw_series(LineSeries::new(e[0].clone(),   &YELLOW,))?;
+					//chart.draw_series(LineSeries::new(e[1].clone(),   &WHITE,))?;
+					//chart.draw_series(LineSeries::new(etot.clone(),   &RED,))?;
 					//chart.draw_series(LineSeries::new(F[0].clone(),   &YELLOW,))?;
 					//chart.draw_series(LineSeries::new(F[1].clone(),   &WHITE,))?;
 					//chart.draw_series(LineSeries::new(F[2].clone(),   &BLUE,))?;
@@ -176,6 +179,7 @@ fn main () -> Result<(), Box<dyn Error>> {
 	data.insert("Ekin1", ekin[1].clone());
 	data.insert("Epot0", epot[0].clone());
 	data.insert("Epot1", epot[1].clone());
+	data.insert("sep", sep.clone());
 	
 	crate::log_array::log_array(&data, "out.csv")?;
 
