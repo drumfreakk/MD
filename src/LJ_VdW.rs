@@ -1,7 +1,7 @@
 
 use crate::particles::Particle;
 
-const LJ_4_EPSILON: f64 = 20.0;
+const LJ_4_EPSILON: f64 = 4.0;
 
 
 // Gives the Lennard-Jones Van der Waals potential for particle at distance
@@ -26,5 +26,5 @@ pub fn LJ_VdW_F(particle: &Particle, distance: f64) -> f64 {
 	// 6 * 4e s^6 r^-7 (1 - 2 s^6 r^-6)
 	let s6 = particle.r.powf(6.0);
 
-	return 6.0 * LJ_4_EPSILON * s6 * distance.powf(-7.0) * (1.0 - 2.0 * s6 * distance.powf(-6.0));
+	return 6.0 * LJ_4_EPSILON * s6 * distance.powf(-7.0) * (1.0 - (2.0 * s6 * distance.powf(-6.0)));
 }
