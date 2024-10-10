@@ -13,7 +13,7 @@ use crate::constants::{W, H, FRAME_RATE, SIM_LEN, TIME_STEP};
 use crate::vectors::Vector;
 use crate::particles::Particle;
 use crate::buffer::BufferWrapper;
-use crate::forcefield::{temperature, vanderwaals};
+use crate::forcefield::{temperature, vanderwaals, electrostatic};
 
 use minifb::{Window, WindowOptions, Key};
 use plotters::prelude::*;
@@ -33,7 +33,7 @@ fn main () -> Result<(), Box<dyn Error>> {
 			BitMapBackend::<BGRXPixel>::with_buffer_and_format(buf.borrow_mut(), (W as u32, H as u32))?.into_drawing_area();
 		root.fill(&BLACK)?;
 
-		let mut chart = ChartBuilder::on(&root).margin(10).set_all_label_area_size(30).build_cartesian_2d(0.0..SIM_LEN, -2.0..3.0)?;
+		let mut chart = ChartBuilder::on(&root).margin(10).set_all_label_area_size(30).build_cartesian_2d(0.0..SIM_LEN, -20.0..20.0)?;
 
 		chart.configure_mesh().label_style(("sans-serif", 15).into_font().color(&GREEN)).axis_style(&GREEN).draw()?;
 
@@ -47,8 +47,8 @@ fn main () -> Result<(), Box<dyn Error>> {
 
 	let mut t = 0.0;
 
-	let mut p = vec![Particle::new(&Vector::zero(),       0.95, 1.0, None, None),
-			 	 Particle::new(&(Vector::unit_x() * 3.0), 1.00, 1.0, None, None)];
+	let mut p = vec![Particle::new(&(Vector::unit_x() * -10.0), 1.00, 1.0,  1.0, None, None),
+			 	     Particle::new(&(Vector::unit_x() *  10.0), 1.00, 1.0, -1.0, None, None)];
 
 	
 	let mut pos = [Vec::new(), Vec::new()];
@@ -57,7 +57,10 @@ fn main () -> Result<(), Box<dyn Error>> {
 	let mut a = [Vec::new(), Vec::new()];
 	let mut ekin = [Vec::new(), Vec::new()];
 	let mut epot = [Vec::new(), Vec::new()];
+	let mut eelec = [Vec::new(), Vec::new()];
 	let mut e = [Vec::new(), Vec::new()];
+	let mut force_elec = [Vec::new(), Vec::new()];
+	let mut force_vdw = [Vec::new(), Vec::new()];
 	let mut force = [Vec::new(), Vec::new()];
 	let mut etot = Vec::new();
 	let mut sep = Vec::new();
@@ -83,30 +86,39 @@ fn main () -> Result<(), Box<dyn Error>> {
 
 			let r = (p[0].r + p[1].r)/2.0;
 
-			let VdW_force = vanderwaals::get_force(r, sep_dist);
-			let VdW_pot = vanderwaals::get_potential(r, sep_dist);
-			let f_dir = separation/sep_dist;
+			let vdw_force = vanderwaals::get_force(r, sep_dist);
+			let vdw_pot = vanderwaals::get_potential(r, sep_dist);
+			let vdw_dir = separation/sep_dist;
 
 			let temp = temperature::get_temperature(&p);
-	
-			let scale = temperature::get_scale(&p, 0.0, 2.0);
+			let scale = temperature::get_scale(&p, 0.0, 0.5);
 
-			epot[0].push(( t, VdW_pot));
-			epot[1].push(( t, VdW_pot));
+			let elec_f = electrostatic::get_force((p[0].q, p[1].q), sep_dist, true);
+			let elec_v = electrostatic::get_energy((p[0].q, p[1].q), sep_dist, true);
+
+			epot[0].push(( t, vdw_pot));
+			epot[1].push(( t, vdw_pot));
 			ekin[0].push(( t, p[0].m * p[0].v.sqlen() / 2.0));
 			ekin[1].push(( t, p[1].m * p[1].v.sqlen() / 2.0));
+			eelec[0].push(( t, elec_v));
+			eelec[1].push(( t, elec_v));
 			let index = epot[0].len() - 1;
-			e[0].push((    t, epot[0][index].1 + ekin[0][index].1));
-			e[1].push((    t, epot[1][index].1 + ekin[1][index].1));
+			e[0].push((    t, epot[0][index].1 + ekin[0][index].1 + eelec[0][index].1));
+			e[1].push((    t, epot[1][index].1 + ekin[1][index].1 + eelec[1][index].1));
 			etot.push((    t, e[0][index].1 + e[1][index].1));
 			temperature.push((       t, temp));
 			temp_scale.push((       t, scale));
-			force[0].push((t,  VdW_force));
-			force[1].push((t, -VdW_force));
+			force_vdw[0].push((t,  vdw_force));
+			force_vdw[1].push((t, -vdw_force));
+			force_elec[0].push((t,  -elec_f/100.0));
+			force_elec[1].push((t,  elec_f/100.0));
+			force[0].push((t, vdw_force - elec_f));
+			force[1].push((t, -vdw_force + elec_f));
 
 
-			p[0].a =  f_dir * VdW_force / p[0].m;
-			p[1].a = -f_dir * VdW_force / p[1].m;
+
+			p[0].a =  vdw_dir * ( vdw_force - elec_f) / p[0].m;
+			p[1].a =  vdw_dir * (-vdw_force + elec_f) / p[1].m;
 			p[0].v = p[0].v * scale;
 			p[1].v = p[1].v * scale;
 
@@ -135,18 +147,24 @@ fn main () -> Result<(), Box<dyn Error>> {
 					//chart.draw_series(LineSeries::new(sep.clone(), &MAGENTA,))?;
 					//chart.draw_series(LineSeries::new(v[0].clone(), &CYAN,))?;
 					//chart.draw_series(LineSeries::new(v[1].clone(), &BLUE,))?;
-					//chart.draw_series(LineSeries::new(a[0].clone(), &WHItemperatureE,))?;
+					//chart.draw_series(LineSeries::new(a[0].clone(), &WHITE,))?;
 					//chart.draw_series(LineSeries::new(a[1].clone(), &YELLOW,))?;
 					//chart.draw_series(LineSeries::new(epot[0].clone(),   &BLUE,))?;
 					//chart.draw_series(LineSeries::new(epot[1].clone(),   &MAGENTA,))?;
 					//chart.draw_series(LineSeries::new(ekin[0].clone(),   &BLUE,))?;
 					//chart.draw_series(LineSeries::new(ekin[1].clone(),   &CYAN,))?;
-					//chart.draw_series(LineSeries::new(e[0].clone(),   &WHItemperatureE,))?;
+					//chart.draw_series(LineSeries::new(eelec[0].clone(),   &BLUE,))?;
+					//chart.draw_series(LineSeries::new(eelec[1].clone(),   &CYAN,))?;
+					//chart.draw_series(LineSeries::new(e[0].clone(),   &WHITE,))?;
 					//chart.draw_series(LineSeries::new(e[1].clone(),   &YELLOW,))?;
 					//chart.draw_series(LineSeries::new(etot.clone(),   &MAGENTA,))?;
+					//chart.draw_series(LineSeries::new(force_vdw[0].clone(),   &YELLOW,))?;
+					//chart.draw_series(LineSeries::new(force_vdw[1].clone(),   &WHITE,))?;
+					chart.draw_series(LineSeries::new(force_elec[0].clone(),   &YELLOW,))?;
+					chart.draw_series(LineSeries::new(force_elec[1].clone(),   &WHITE,))?;
 					//chart.draw_series(LineSeries::new(force[0].clone(),   &YELLOW,))?;
-					//chart.draw_series(LineSeries::new(force[1].clone(),   &WHItemperatureE,))?;
-					chart.draw_series(LineSeries::new(temperature.clone(), &MAGENTA,))?;
+					//chart.draw_series(LineSeries::new(force[1].clone(),   &WHITE,))?;
+					//chart.draw_series(LineSeries::new(temperature.clone(), &MAGENTA,))?;
 					//chart.draw_series(LineSeries::new(temp_scale.clone(), &YELLOW,))?;
 				}
 				root.present()?;
@@ -172,10 +190,16 @@ fn main () -> Result<(), Box<dyn Error>> {
 	data.insert("E",  etot.clone());
 	data.insert("force0", force[0].clone());
 	data.insert("force1", force[1].clone());
+	data.insert("force_elec0", force_elec[0].clone());
+	data.insert("force_elec1", force_elec[1].clone());
+	data.insert("force_vdw0", force_vdw[0].clone());
+	data.insert("force_vdw1", force_vdw[1].clone());
 	data.insert("Ekin0", ekin[0].clone());
 	data.insert("Ekin1", ekin[1].clone());
 	data.insert("Epot0", epot[0].clone());
 	data.insert("Epot1", epot[1].clone());
+	data.insert("Eelec0", eelec[0].clone());
+	data.insert("Eelec1", eelec[1].clone());
 	data.insert("sep", sep.clone());
 	data.insert("temperature", temperature.clone());
 	data.insert("temp_scale", temp_scale.clone());

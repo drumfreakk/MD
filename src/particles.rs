@@ -7,17 +7,19 @@ pub struct Particle {
 	pub pos: Vector,	// Position
 	pub r: f64,			// Radius
 	pub m: f64,			// Mass
+	pub q: f64,			// Charge
 	pub v: Vector,		// Velocity
 	pub a: Vector,		// Accelleration
 }
 
 #[allow(dead_code)]
 impl Particle {
-    pub fn new(pos: &Vector, r: f64, m: f64, v: Option<Vector>, a: Option<Vector>) -> Self {
+    pub fn new(pos: &Vector, r: f64, m: f64, q: f64, v: Option<Vector>, a: Option<Vector>) -> Self {
         Particle{
             pos: *pos,
             r,
             m,
+			q,
             v: v.unwrap_or(Vector::zero()),
             a: a.unwrap_or(Vector::zero()),
         }

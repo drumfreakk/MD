@@ -23,7 +23,7 @@ pub fn get_potential(radius: f64, total_distance: f64) -> f64 {
 }
 
 /**
- * Gets the force between two particles due to the (Lennard-Jones 12-6) Van der Waals force
+ * Gets the magnitude of the force between two particles due to the (Lennard-Jones 12-6) Van der Waals force
  *
  * @param f64 radius_minimal The distance at which the force is 0. Should be 2^(1/6) * (r_0 + r_1)/2
  * @param f64 total_distance The distance between the centres of mass of the particles
