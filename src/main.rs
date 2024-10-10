@@ -50,7 +50,16 @@ fn main () -> Result<(), Box<dyn Error>> {
 	let mut p = vec![Particle::new(&(Vector::unit_x() * -10.0), 1.00, 1.0,  1.0, None, None),
 			 		 Particle::new(&(Vector::unit_x() *  10.0), 1.00, 1.0, -1.0, None, None)];
 
-	
+	let mut global_data = Vec::new();
+	global_data.push(("time", Vec::<f64>::new()));
+
+	let mut particle_data = Vec::new();
+	particle_data.push(("pos", Vec::new()));
+
+	for _i in 0..p.len() {
+		particle_data[0].1.push(Vec::<f64>::new());
+	}
+
 	let mut pos = [Vec::new(), Vec::new()];
 	let mut pos_r = [Vec::new(), Vec::new()];
 	let mut v = [Vec::new(), Vec::new()];
@@ -71,6 +80,8 @@ fn main () -> Result<(), Box<dyn Error>> {
 	while window.is_open() && !window.is_key_down(Key::Escape) {
 		let epoch = SystemTime::now().duration_since(start_ts).unwrap().as_secs_f64();
 		if epoch - last_flushed <= 1.0 / FRAME_RATE && t < SIM_LEN {
+			global_data[get_index_global(&global_data, "time")?].1.push(t);
+
 			pos[0].push((  t, p[0].pos.x));
 			pos[1].push((  t, p[1].pos.x));
 			sep.push((  t, p[1].pos.x - p[0].pos.x));
@@ -140,8 +151,10 @@ fn main () -> Result<(), Box<dyn Error>> {
 
 					chart.configure_mesh().bold_line_style(&GREEN.mix(0.2)).light_line_style(&TRANSPARENT).draw()?;
 
-					chart.draw_series(LineSeries::new(pos[0].clone(), &GREEN,))?;
-					chart.draw_series(LineSeries::new(pos[1].clone(), &RED,))?;
+					//chart.draw_series(LineSeries::new(data.get_mut("positions").expect("Invalid key")[0].clone(), &GREEN,))?;
+					//chart.draw_series(LineSeries::new(data.get_mut("positions").expect("Invalid key")[1].clone(), &RED,))?;
+					//chart.draw_series(LineSeries::new(pos[0].clone(), &GREEN,))?;
+					//chart.draw_series(LineSeries::new(pos[1].clone(), &RED,))?;
 					chart.draw_series(LineSeries::new(pos_r[0].clone(), &GREEN,))?;
 					chart.draw_series(LineSeries::new(pos_r[1].clone(), &RED,))?;
 					//chart.draw_series(LineSeries::new(sep.clone(), &MAGENTA,))?;
@@ -209,3 +222,20 @@ fn main () -> Result<(), Box<dyn Error>> {
 	Ok(())
 }
 
+fn get_index_global(data: &Vec<(&str, Vec<f64>)>, key: &str) -> Result<usize, usize> {
+	for i in 0..data.len() {
+		if key == data[i].0 {
+			return Ok(i);
+		}
+	}
+	return Err(0);
+}
+
+fn get_index_particle(data: &Vec<(&str, Vec<Vec<f64>>)>, key: &str) -> Result<usize, ()> {
+	for i in 0..data.len() {
+		if key == data[i].0 {
+			return Ok(i);
+		}
+	}
+	return Err(());
+}
