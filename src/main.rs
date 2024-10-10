@@ -48,7 +48,7 @@ fn main () -> Result<(), Box<dyn Error>> {
 	let mut t = 0.0;
 
 	let mut p = vec![Particle::new(&(Vector::unit_x() * -10.0), 1.00, 1.0,  1.0, None, None),
-			 	     Particle::new(&(Vector::unit_x() *  10.0), 1.00, 1.0, -1.0, None, None)];
+			 		 Particle::new(&(Vector::unit_x() *  10.0), 1.00, 1.0, -1.0, None, None)];
 
 	
 	let mut pos = [Vec::new(), Vec::new()];
@@ -76,10 +76,10 @@ fn main () -> Result<(), Box<dyn Error>> {
 			sep.push((  t, p[1].pos.x - p[0].pos.x));
 			pos_r[0].push((t, p[0].pos.x + p[0].r));
 			pos_r[1].push((t, p[1].pos.x - p[1].r));
-			v[0].push((    t, p[0].v.x));
-			v[1].push((    t, p[1].v.x));
-			a[0].push((    t, p[0].a.x));
-			a[1].push((    t, p[1].a.x));
+			v[0].push((	t, p[0].v.x));
+			v[1].push((	t, p[1].v.x));
+			a[0].push((	t, p[0].a.x));
+			a[1].push((	t, p[1].a.x));
 			
 			let separation = p[0].separation(&p[1]);
 			let sep_dist = separation.len();
@@ -103,11 +103,11 @@ fn main () -> Result<(), Box<dyn Error>> {
 			eelec[0].push(( t, elec_v));
 			eelec[1].push(( t, elec_v));
 			let index = epot[0].len() - 1;
-			e[0].push((    t, epot[0][index].1 + ekin[0][index].1 + eelec[0][index].1));
-			e[1].push((    t, epot[1][index].1 + ekin[1][index].1 + eelec[1][index].1));
-			etot.push((    t, e[0][index].1 + e[1][index].1));
-			temperature.push((       t, temp));
-			temp_scale.push((       t, scale));
+			e[0].push((	t, epot[0][index].1 + ekin[0][index].1 + eelec[0][index].1));
+			e[1].push((	t, epot[1][index].1 + ekin[1][index].1 + eelec[1][index].1));
+			etot.push((	t, e[0][index].1 + e[1][index].1));
+			temperature.push((	   t, temp));
+			temp_scale.push((	   t, scale));
 			force_vdw[0].push((t,  vdw_force));
 			force_vdw[1].push((t, -vdw_force));
 			force_elec[0].push((t,  -elec_f/100.0));

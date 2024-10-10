@@ -14,16 +14,16 @@ pub struct Particle {
 
 #[allow(dead_code)]
 impl Particle {
-    pub fn new(pos: &Vector, r: f64, m: f64, q: f64, v: Option<Vector>, a: Option<Vector>) -> Self {
-        Particle{
-            pos: *pos,
-            r,
-            m,
+	pub fn new(pos: &Vector, r: f64, m: f64, q: f64, v: Option<Vector>, a: Option<Vector>) -> Self {
+		Particle{
+			pos: *pos,
+			r,
+			m,
 			q,
-            v: v.unwrap_or(Vector::zero()),
-            a: a.unwrap_or(Vector::zero()),
-        }
-    }
+			v: v.unwrap_or(Vector::zero()),
+			a: a.unwrap_or(Vector::zero()),
+		}
+	}
 
 /* Position functions */
 	// Separation vector from self to other
@@ -32,10 +32,10 @@ impl Particle {
 	}
 	// Normalized vector from self to other
 	pub fn direction(&self, other: &Self) -> Vector {
-        return self.separation(other).norm(); 
-    }
+		return self.separation(other).norm(); 
+	}
 	// Separation distance between self and other
-    pub fn distance(&self, other: &Self) -> f64 {
+	pub fn distance(&self, other: &Self) -> f64 {
 		return self.separation(other).len();
 	}
 	// Collision distance between self and other
