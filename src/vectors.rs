@@ -1,6 +1,10 @@
 use std::fmt;
 use std::ops;
 
+/**
+ * A 3-dimensional vector, with associated functions
+ */
+
 #[derive(Copy, Clone)]
 pub struct Vector {
 	pub x: f64,

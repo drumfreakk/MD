@@ -1,8 +1,5 @@
 
-use crate::particles::Particle;
-
-const LJ_4_EPSILON: f64 = 4.0;
-
+use crate::constants::LJ_4_EPSILON;
 
 /**
  * Gets the Lennard-Jones 12-6 potential between two particles
@@ -11,8 +8,7 @@ const LJ_4_EPSILON: f64 = 4.0;
  * @param f64 total_distance The distance between the centres of mass of the particles
  * @return f64 The potential of the configuration
  */
-#[allow(non_snake_case)]
-pub fn LJ_VdW_pot(radius: f64, total_distance: f64) -> f64 {
+pub fn get_potential(radius: f64, total_distance: f64) -> f64 {
 	//4e ( (s/r)^12 - (s/r)^6 )
 	// r is dist, s is radius, e is well depth
   
@@ -33,8 +29,7 @@ pub fn LJ_VdW_pot(radius: f64, total_distance: f64) -> f64 {
  * @param f64 total_distance The distance between the centres of mass of the particles
  * @return f64 The force between the particles
  */
-#[allow(non_snake_case)]
-pub fn LJ_VdW_F(radius: f64, total_distance: f64) -> f64 {
+pub fn get_force(radius: f64, total_distance: f64) -> f64 {
 	// 4e ( -12 s^12 r^-13 + 6 s^6 r^-7)
 	// 4e ( 6 s^6 (r^-7 - 2 s^6 r^-13 )
 	// 6 * 4e s^6 r^-7 (1 - 2 s^6 r^-6)
