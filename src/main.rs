@@ -5,13 +5,14 @@ mod constants;
 mod vectors;
 mod particles;
 mod buffer;
-mod log_array;
 mod forcefield;
+mod log_data;
 
 use crate::constants::{W, H, FRAME_RATE, SIM_LEN, TIME_STEP};
 
 use crate::vectors::Vector;
 use crate::particles::Particle;
+use crate::log_data::DataLog;
 use crate::buffer::BufferWrapper;
 use crate::forcefield::{temperature, vanderwaals, electrostatic};
 
@@ -50,16 +51,12 @@ fn main () -> Result<(), Box<dyn Error>> {
 	let mut p = vec![Particle::new(&(Vector::unit_x() * -10.0), 1.00, 1.0,  1.0, None, None),
 			 		 Particle::new(&(Vector::unit_x() *  10.0), 1.00, 1.0, -1.0, None, None)];
 
-	let mut global_data = Vec::new();
-	global_data.push(("time", Vec::<f64>::new()));
+	let mut data = DataLog::new(p.len());
 
-	let mut particle_data = Vec::new();
-	particle_data.push(("pos", Vec::new()));
-
-	for _i in 0..p.len() {
-		particle_data[0].1.push(Vec::<f64>::new());
-	}
-
+	data.global.add_series("temperature");
+	data.add_particle_series("energy_kinetic");
+	data.add_particle_vector_series("position");
+	
 	let mut pos = [Vec::new(), Vec::new()];
 	let mut pos_r = [Vec::new(), Vec::new()];
 	let mut v = [Vec::new(), Vec::new()];
@@ -80,7 +77,16 @@ fn main () -> Result<(), Box<dyn Error>> {
 	while window.is_open() && !window.is_key_down(Key::Escape) {
 		let epoch = SystemTime::now().duration_since(start_ts).unwrap().as_secs_f64();
 		if epoch - last_flushed <= 1.0 / FRAME_RATE && t < SIM_LEN {
-			global_data[get_index_global(&global_data, "time")?].1.push(t);
+			data.time.push(t);
+			let mut ekin_temp = 0.0;
+			for i in 0..p.len() {
+				data.insert_particle_vector_len("position", i, p[i].pos);
+				//particle_data.insert_into("position", i, p[i].pos.len());
+				let k = p[i].m * p[i].v.sqlen() / 2.0;
+				ekin_temp += k;
+				data.insert_particle_add("energy_kinetic", i, k);
+			}
+			//global_data.insert_into("energy_kinetic", ekin_temp);
 
 			pos[0].push((  t, p[0].pos.x));
 			pos[1].push((  t, p[1].pos.x));
@@ -107,6 +113,8 @@ fn main () -> Result<(), Box<dyn Error>> {
 			let elec_f = electrostatic::get_force((p[0].q, p[1].q), sep_dist, true);
 			let elec_v = electrostatic::get_energy((p[0].q, p[1].q), sep_dist, true);
 
+			//global_data.get_mut("temperature").expect("Invalid Key").push(temp);
+			data.global.insert_into("temperature", temp);
 			epot[0].push(( t, vdw_pot));
 			epot[1].push(( t, vdw_pot));
 			ekin[0].push(( t, p[0].m * p[0].v.sqlen() / 2.0));
@@ -117,6 +125,7 @@ fn main () -> Result<(), Box<dyn Error>> {
 			e[0].push((	t, epot[0][index].1 + ekin[0][index].1 + eelec[0][index].1));
 			e[1].push((	t, epot[1][index].1 + ekin[1][index].1 + eelec[1][index].1));
 			etot.push((	t, e[0][index].1 + e[1][index].1));
+
 			temperature.push((	   t, temp));
 			temp_scale.push((	   t, scale));
 			force_vdw[0].push((t,  vdw_force));
@@ -151,12 +160,20 @@ fn main () -> Result<(), Box<dyn Error>> {
 
 					chart.configure_mesh().bold_line_style(&GREEN.mix(0.2)).light_line_style(&TRANSPARENT).draw()?;
 
+					chart.draw_series(LineSeries::new(data.global_as_iter("temperature"), &MAGENTA,))?;
+					chart.draw_series(LineSeries::new(data.global_as_iter("energy_kinetic"), &GREEN,))?;
+					chart.draw_series(LineSeries::new(data.particle_as_iter("energy_kinetic", 0), &YELLOW,))?;
+					chart.draw_series(LineSeries::new(data.particle_as_iter("energy_kinetic", 1), &WHITE,))?;
+					//chart.draw_series(LineSeries::new(std::iter::zip(data.time.clone().into_iter(), data.particle.get("energy_kinetic")[0].clone()), &YELLOW,))?;
+					//chart.draw_series(LineSeries::new(std::iter::zip(data.time.clone().into_iter(), data.particle.get("energy_kinetic")[1].clone()), &WHITE,))?;
+					chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 0).map(|(t, v)| {(t, v.x)}), &RED,))?;
+					chart.draw_series(LineSeries::new(data.particle_as_iter("position", 0), &WHITE,))?;
 					//chart.draw_series(LineSeries::new(data.get_mut("positions").expect("Invalid key")[0].clone(), &GREEN,))?;
 					//chart.draw_series(LineSeries::new(data.get_mut("positions").expect("Invalid key")[1].clone(), &RED,))?;
 					//chart.draw_series(LineSeries::new(pos[0].clone(), &GREEN,))?;
 					//chart.draw_series(LineSeries::new(pos[1].clone(), &RED,))?;
-					chart.draw_series(LineSeries::new(pos_r[0].clone(), &GREEN,))?;
-					chart.draw_series(LineSeries::new(pos_r[1].clone(), &RED,))?;
+					//chart.draw_series(LineSeries::new(pos_r[0].clone(), &GREEN,))?;
+					//chart.draw_series(LineSeries::new(pos_r[1].clone(), &RED,))?;
 					//chart.draw_series(LineSeries::new(sep.clone(), &MAGENTA,))?;
 					//chart.draw_series(LineSeries::new(v[0].clone(), &CYAN,))?;
 					//chart.draw_series(LineSeries::new(v[1].clone(), &BLUE,))?;
@@ -173,8 +190,8 @@ fn main () -> Result<(), Box<dyn Error>> {
 					//chart.draw_series(LineSeries::new(etot.clone(),   &MAGENTA,))?;
 					//chart.draw_series(LineSeries::new(force_vdw[0].clone(),   &YELLOW,))?;
 					//chart.draw_series(LineSeries::new(force_vdw[1].clone(),   &WHITE,))?;
-					chart.draw_series(LineSeries::new(force_elec[0].clone(),   &YELLOW,))?;
-					chart.draw_series(LineSeries::new(force_elec[1].clone(),   &WHITE,))?;
+					//chart.draw_series(LineSeries::new(force_elec[0].clone(),   &YELLOW,))?;
+					//chart.draw_series(LineSeries::new(force_elec[1].clone(),   &WHITE,))?;
 					//chart.draw_series(LineSeries::new(force[0].clone(),   &YELLOW,))?;
 					//chart.draw_series(LineSeries::new(force[1].clone(),   &WHITE,))?;
 					//chart.draw_series(LineSeries::new(temperature.clone(), &MAGENTA,))?;
@@ -187,55 +204,10 @@ fn main () -> Result<(), Box<dyn Error>> {
 			last_flushed = epoch;
 		}
 	}
-
-	let mut data = HashMap::new();
-
-	data.insert("pos0", pos[0].clone());
-	data.insert("pos1", pos[1].clone());
-	data.insert("posr0", pos_r[0].clone());
-	data.insert("posr1", pos_r[1].clone());
-	data.insert("a0", a[0].clone());
-	data.insert("a1", a[1].clone());
-	data.insert("v0", v[0].clone());
-	data.insert("v1", v[1].clone());
-	data.insert("E0", e[0].clone());
-	data.insert("E1", e[1].clone());
-	data.insert("E",  etot.clone());
-	data.insert("force0", force[0].clone());
-	data.insert("force1", force[1].clone());
-	data.insert("force_elec0", force_elec[0].clone());
-	data.insert("force_elec1", force_elec[1].clone());
-	data.insert("force_vdw0", force_vdw[0].clone());
-	data.insert("force_vdw1", force_vdw[1].clone());
-	data.insert("Ekin0", ekin[0].clone());
-	data.insert("Ekin1", ekin[1].clone());
-	data.insert("Epot0", epot[0].clone());
-	data.insert("Epot1", epot[1].clone());
-	data.insert("Eelec0", eelec[0].clone());
-	data.insert("Eelec1", eelec[1].clone());
-	data.insert("sep", sep.clone());
-	data.insert("temperature", temperature.clone());
-	data.insert("temp_scale", temp_scale.clone());
 	
-	crate::log_array::log_array(&data, "out.csv")?;
+	data.to_file("out.csv")?;
 
 	Ok(())
 }
 
-fn get_index_global(data: &Vec<(&str, Vec<f64>)>, key: &str) -> Result<usize, usize> {
-	for i in 0..data.len() {
-		if key == data[i].0 {
-			return Ok(i);
-		}
-	}
-	return Err(0);
-}
 
-fn get_index_particle(data: &Vec<(&str, Vec<Vec<f64>>)>, key: &str) -> Result<usize, ()> {
-	for i in 0..data.len() {
-		if key == data[i].0 {
-			return Ok(i);
-		}
-	}
-	return Err(());
-}
