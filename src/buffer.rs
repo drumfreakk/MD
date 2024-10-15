@@ -1,15 +1,11 @@
 
-use std::borrow::{Borrow, BorrowMut};
-
-/** 
-
-Some helper functions for displaying the graph
+/*! Some helper functions for displaying the graph.
 
 Original code from <https://github.com/plotters-rs/plotters-minifb-demo>
 The other code for displaying the graph in main.rs is also adapted from this repo
-
 */
 
+use std::borrow::{Borrow, BorrowMut};
 
 pub struct BufferWrapper(pub Vec<u32>);
 impl Borrow<[u8]> for BufferWrapper {

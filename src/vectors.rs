@@ -1,10 +1,10 @@
+
+//! A 3D vector, with associated functions
+
 use std::fmt;
 use std::ops;
 
-/**
- * A 3-dimensional vector, with associated functions
- */
-
+/// A 3-dimensional vector.
 #[derive(Copy, Clone)]
 pub struct Vector {
 	pub x: f64,
@@ -14,18 +14,22 @@ pub struct Vector {
 
 #[allow(dead_code)]
 impl Vector {
+	/// The length of the vector.
 	pub fn len(&self) -> f64 {
 		self.sqlen().sqrt()
 	}
 	
+	/// The squared length of the vector.
 	pub fn sqlen(&self) -> f64 {
 		self.dot(self)
 	}
 
+	/// The inner (dot) product of the vector with other.
 	pub fn dot(&self, other: &Self) -> f64 {
 		self.x * other.x + self.y * other.y + self.z * other.z
 	}
-
+	
+	/// The outer (cross) product of the vector with other.
 	pub fn cross(&self, other: &Self) -> Self {
 		Vector{
 			x: self.y * other.z - self.z * other.y,
@@ -34,26 +38,32 @@ impl Vector {
 		}
 	}
 
+	/// The normalized version of the vector.
 	pub fn norm (&self) -> Self {
 		*self / self.len()
 	}
 
+	/// Create a new vector with given values.
 	pub fn new(x: f64, y: f64, z: f64) -> Self {
 		Vector{x,y,z}
 	}
 
+	/// Create a new 0 vector.
 	pub fn zero() -> Self {
 		Vector{x: 0.0, y: 0.0, z: 0.0}
 	}
 
+	/// Create the vector (1,0,0).
 	pub fn unit_x() -> Self {
 		Vector{x: 1.0, y: 0.0, z: 0.0}
 	}
 
+	/// Create the vector (0,1,0).
 	pub fn unit_y() -> Self {
 		Vector{x: 0.0, y: 1.0, z: 0.0}
 	}
 
+	/// Create the vector (0,0,1).
 	pub fn unit_z() -> Self {
 		Vector{x: 0.0, y: 0.0, z: 1.0}
 	}

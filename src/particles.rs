@@ -1,8 +1,10 @@
 
+//! A particle, with associated quantities and functions
+
 use std::fmt;
 use crate::vectors::Vector;
 
-
+/// A particle, with associated v, a, radius, mass, and charge
 pub struct Particle {
 	pub pos: Vector,	// Position
 	pub r: f64,			// Radius
@@ -14,6 +16,7 @@ pub struct Particle {
 
 #[allow(dead_code)]
 impl Particle {
+	/// Create a new particle with given values
 	pub fn new(pos: &Vector, r: f64, m: f64, q: f64, v: Option<Vector>, a: Option<Vector>) -> Self {
 		Particle{
 			pos: *pos,
@@ -26,34 +29,35 @@ impl Particle {
 	}
 
 /* Position functions */
-	// Separation vector from self to other
+	/// Separation vector from self to other
 	pub fn separation(&self, other: &Self) -> Vector {
 		return other.pos - self.pos;
 	}
-	// Normalized vector from self to other
+	/// Normalized direction vector from self to other
 	pub fn direction(&self, other: &Self) -> Vector {
 		return self.separation(other).norm(); 
 	}
-	// Separation distance between self and other
+	/// Separation distance between self and other
 	pub fn distance(&self, other: &Self) -> f64 {
 		return self.separation(other).len();
 	}
-	// Collision distance between self and other
+	/// Collision distance between self and other
 	pub fn collision_dist(&self, other: &Self) -> f64 {
 		return self.distance(other) - self.r - other.r;
 	}
 
-/* Update position based on a step in time*/
+/* Update functions */
+	/// Update position based on a step in time
 	pub fn update_pos(&mut self, dt: f64) {
 		self.pos = self.pos + self.v * dt
 	}
 
-/* Update velocity based on a step in time */
+	/// Update velocity based on a step in time
 	pub fn update_v(&mut self, dt: f64) {
 		self.v = self.v + self.a * dt;
 	}
 
-/* Step in time */
+	/// Step in time, updating v and pos
 	pub fn update(&mut self, dt: f64){
 		self.update_v(dt);
 		self.update_pos(dt);
