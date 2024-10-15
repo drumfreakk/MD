@@ -19,7 +19,7 @@ use crate::log_data::DataLog;
 use crate::buffer::BufferWrapper;
 use crate::forcefield::{temperature, vanderwaals, electrostatic};
 
-use minifb::{Window, WindowOptions, Key};
+use minifb::{Window, WindowOptions, Key, KeyRepeat};
 use plotters::prelude::*;
 use plotters_bitmap::bitmap_pixel::BGRXPixel;
 use plotters_bitmap::BitMapBackend;
@@ -27,18 +27,37 @@ use std::borrow::{Borrow, BorrowMut};
 use std::error::Error;
 use std::time::SystemTime;
 
+fn get_window_title(t: f64, pitch: f64, yaw: f64) -> String {
+	format!("Molecular Dynamics Simulation t={:.1}, pitch={:.2}, yaw={:.2}", t, pitch, yaw)
+}
+
+
 fn main () -> Result<(), Box<dyn Error>> {
 	let mut buf = BufferWrapper(vec![0u32; W * H]);
 
-	let mut window = Window::new("Molecular Dynamics Simulation",W,H,WindowOptions::default(),)?;
+	let mut yaw = 0.5;
+	let mut pitch = 0.15;
+	let mut scale = 0.7;
+
+	let mut t = 0.0;
+
+	let mut window = Window::new(&get_window_title(t, pitch, yaw) ,W,H,WindowOptions::default(),)?;
 	let cs = {
 		let root =
 			BitMapBackend::<BGRXPixel>::with_buffer_and_format(buf.borrow_mut(), (W as u32, H as u32))?.into_drawing_area();
 		root.fill(&BLACK)?;
 
-		let mut chart = ChartBuilder::on(&root).margin(10).set_all_label_area_size(30).build_cartesian_2d(0.0..SIM_LEN, -15.0..15.0)?;
-
-		chart.configure_mesh().label_style(("sans-serif", 15).into_font().color(&GREEN)).axis_style(&GREEN).draw()?;
+		//let mut chart = ChartBuilder::on(&root).margin(10).set_all_label_area_size(30).build_cartesian_2d(0.0..SIM_LEN, -100.0..100.0)?;
+		//chart.configure_mesh().label_style(("sans-serif", 15).into_font().color(&GREEN)).axis_style(&GREEN).draw()?;
+		//let mut chart = ChartBuilder::on(&root).margin(10).set_all_label_area_size(30).build_cartesian_3d(-5.0..5.0, -5.0..5.0, 0.0..SIM_LEN)?;
+		let mut chart = ChartBuilder::on(&root).margin(10).set_all_label_area_size(30).build_cartesian_3d(-5.0..5.0, -5.0..5.0, -5.0..5.0)?;
+		chart.configure_axes().label_style(("sans-serif", 15).into_font().color(&GREEN)).axis_panel_style(&GREEN).draw()?;
+		chart.with_projection(|mut pb| {
+			pb.yaw = yaw;
+			pb.pitch = pitch;
+			pb.scale = scale;
+			pb.into_matrix()
+		});
 
 		let cs = chart.into_chart_state();
 		root.present()?;
@@ -48,11 +67,14 @@ fn main () -> Result<(), Box<dyn Error>> {
 	let start_ts = SystemTime::now();
 	let mut last_flushed = 0.0;
 
-	let mut t = 0.0;
+	//TODO: multiple graphs, split this file up
 
-	let mut p = vec![Particle::new(&(Vector::unit_x() * -5.0), 1.00, 1.0,  0.0, None, None),
-			 		 Particle::new(&Vector::zero(),            1.00, 1.0, 0.0, None, None),
-			 		 Particle::new(&(Vector::unit_x() *  4.0), 1.00, 1.0,  0.0, None, None)];
+	//let mut p = vec![Particle::new(&(Vector::unit_x() * -5.0), 1.00, 1.0,  0.0, None, None),
+	//		 		 Particle::new(&Vector::zero(),			1.00, 1.0,  0.0, None, None),
+	//		 		 Particle::new(&(Vector::unit_x() *  5.0), 1.00, 1.0,  0.0, None, None)];
+	let mut p = vec![Particle::new(&Vector::new(-3.0, -3.0, -3.0),	1.0, 1.0,  0.0, None, None),
+			 		 Particle::new(&Vector::zero(),					1.0, 3.0,  0.0, None, None),
+			 		 Particle::new(&Vector::new(0.0, 5.0, 0.0),		1.5, 1.0,  0.0, None, None)];
 
 	let mut data = DataLog::new(p.len());
 
@@ -81,7 +103,7 @@ fn main () -> Result<(), Box<dyn Error>> {
 				data.insert_particle_vector_len("accelleration", i, p[i].a);	
 			}
 			
-			let scale = temperature::get_scale(&p, 0.0, 25.0);
+			let scale = temperature::get_scale(&p, 0.0, 5.0);
 			
 			data.global.insert_into("temperature", temperature::get_temperature(&p));
 			data.global.insert_into("temperature_scale", scale);
@@ -139,13 +161,21 @@ fn main () -> Result<(), Box<dyn Error>> {
 					
 					chart.plotting_area().fill(&BLACK)?;
 
-					chart.configure_mesh().bold_line_style(&GREEN.mix(0.2)).light_line_style(&TRANSPARENT).draw()?;
+					//chart.configure_mesh().bold_line_style(&GREEN.mix(0.2)).light_line_style(&TRANSPARENT).draw()?;
+					
+					chart.with_projection(|mut pb| {
+							pb.yaw = yaw;
+							pb.pitch = pitch;
+							pb.scale = scale;
+							pb.into_matrix()
+						});
+					chart.configure_axes().bold_grid_style(&GREEN.mix(0.2)).light_grid_style(&TRANSPARENT).draw()?;
 
 					
-					chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 0).map(|(t, v)| {(t, v.x)}), &RED,))?;
-					chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 1).map(|(t, v)| {(t, v.x)}), &GREEN,))?;
-					chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 2).map(|(t, v)| {(t, v.x)}), &MAGENTA,))?;
-					chart.draw_series(LineSeries::new(data.global_as_iter("temperature"), &YELLOW,))?;
+					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 0).map(|(t, v)| {(t, v.x)}), &RED,))?;
+					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 1).map(|(t, v)| {(t, v.x)}), &GREEN,))?;
+					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 2).map(|(t, v)| {(t, v.x)}), &MAGENTA,))?;
+					//chart.draw_series(LineSeries::new(data.global_as_iter("temperature"), &YELLOW,))?;
 	//				chart.draw_series(LineSeries::new(data.particle_as_iter("force_electric", 0), &CYAN,))?;
 					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("force_vdw", 0).map(|(t, v)| {(t, v.x)}), &BLUE,))?;
 					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("force_vdw", 1).map(|(t, v)| {(t, v.x)}), &CYAN,))?;
@@ -153,9 +183,60 @@ fn main () -> Result<(), Box<dyn Error>> {
 					//chart.draw_series(LineSeries::new(data.particle_as_iter("energy_total", 0), &YELLOW,))?;
 					//chart.draw_series(LineSeries::new(data.particle_as_iter("energy_total", 1), &WHITE,))?;
 					//chart.draw_series(LineSeries::new(data.particle_as_iter("energy_total", 2), &CYAN,))?;
-					chart.draw_series(LineSeries::new(data.global_as_iter("energy_total"), &WHITE,))?;
+//					chart.draw_series(LineSeries::new(data.global_as_iter("energy_total"), &WHITE,))?;
+					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 0).map(|(t, v)| {(v.x, v.y, t)}), &RED,))?;
+					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 1).map(|(t, v)| {(v.x, v.y, t)}), &GREEN,))?;
+					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 2).map(|(t, v)| {(v.x, v.y, t)}), &MAGENTA,))?;
+
+					//chart.draw_series(LineSeries::new(data.particle_vector_as_circles("position", 0, p[0].r, 200), &RED.mix(0.5),))?;
+					//chart.draw_series(LineSeries::new(data.particle_vector_as_circles("position", 1, p[1].r, 200), &GREEN.mix(0.5),))?;
+					//chart.draw_series(LineSeries::new(data.particle_vector_as_circles("position", 2, p[2].r, 200), &MAGENTA.mix(0.5),))?;
+					chart.draw_series(LineSeries::new(data.particle_vector_as_sphere("position", 0, p[0].r, data.time.len() - 1), &RED.mix(0.5),))?;
+					chart.draw_series(LineSeries::new(data.particle_vector_as_sphere("position", 1, p[1].r, data.time.len() - 1), &GREEN.mix(0.5),))?;
+					chart.draw_series(LineSeries::new(data.particle_vector_as_sphere("position", 2, p[2].r, data.time.len() - 1), &MAGENTA.mix(0.5),))?;
+					//chart.draw_series(LineSeries::new(f, &YELLOW,))?;
 				}
 				root.present()?;
+
+				let keys = window.get_keys_pressed(KeyRepeat::Yes);
+				for key in keys {
+					match key {
+						Key::Up => {
+							pitch += 0.05;
+						}
+						Key::Down => {
+							pitch -= 0.05;
+						}
+						Key::Left => {
+							yaw -= 0.05;
+						}
+						Key::Right => {
+							yaw += 0.05;
+						}
+						Key::Minus => {
+							if scale > 0.1 {
+								scale -= 0.1;
+							}
+						}
+						Key::Equal => {
+							scale += 0.1;
+						}
+						_ => {
+							continue;
+						}
+					}
+				}
+				if pitch > 3.15 {
+					pitch = -3.15;
+				} else if pitch < -3.15 {
+					pitch = 3.15;
+				}
+				if yaw > 3.15 {
+					yaw = -3.15;
+				} else if yaw < -3.15 {
+					yaw = 3.15;
+				}
+				window.set_title(&get_window_title(t, pitch, yaw));
 			}
 
 			window.update_with_buffer(buf.borrow(), W, H)?;
@@ -163,9 +244,8 @@ fn main () -> Result<(), Box<dyn Error>> {
 		}
 	}
 	
-	data.to_file("out.csv")?;
+//	data.to_file("out.csv")?;
 
 	Ok(())
 }
-
 
