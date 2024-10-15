@@ -81,6 +81,22 @@ impl<'a> DataLog<'a> {
 		}
 	}
 
+	/** Insert (if the last element doesn't exist yet) or add to the Particle series, according to insert_particle_add().
+
+	If the last element already exists, the value is added to the last element, and the corresponding total is also updated.
+	*/
+	pub fn add_to_particle_add(&mut self, name: &str, index: usize, value: f64) {
+		let v_l = self.particle.get(name)[index].len();
+		if v_l == self.time.len() {
+			// Update the last element
+			self.global.add_to_last(name, value);
+			self.particle.add_to_last(name, index, value);
+		} else {
+			// Insert a new element
+			self.insert_particle_add(name, index, value);
+		}
+	}
+
 	/// Create a particle series and a particle vector series with the same name.
 	pub fn add_particle_vector_series(&mut self, name: &'a str) {
 		self.particle_vector.add_series(name);
@@ -91,6 +107,22 @@ impl<'a> DataLog<'a> {
 	pub fn insert_particle_vector_len(&mut self, name: &str, index: usize, value: Vector) {
 		self.particle_vector.insert_into(name, index, value);
 		self.particle.insert_into(name, index, value.len());
+	}
+
+	/** Insert (if the last element doesn't exist yet) or update the ParticleVector series, according to insert_particle_vector_len().
+
+	If the last element already exists, the value is added to the last element, and the corresponding length is updated.
+	*/
+	pub fn add_to_particle_vector_len(&mut self, name: &str, index: usize, value: Vector) {
+		let v_l = self.particle_vector.get(name)[index].len();
+		if v_l == self.time.len() {
+			// Update the last element
+			self.particle_vector.add_to_last(name, index, value);
+			self.particle.update_last(name, index, self.particle_vector.get(name)[index][v_l-1].len());
+		} else {
+			// Insert a new element
+			self.insert_particle_vector_len(name, index, value);
+		}
 	}
 
 	/// Logs all data to a csv file.
@@ -177,6 +209,12 @@ impl<'a> LinearData<'a> {
 	pub fn get(&self, name: &str) -> &Vec::<f64> {
 		self.map.get(name).expect("invalid key")
 	}
+
+	/// Add value to the last element of a series
+	fn add_to_last(&mut self, name: &str, value: f64) {
+		let l = self.map.get(name).expect("ik").len();
+		self.map.get_mut(name).expect("ik")[l-1] += value;
+	}
 }
 
 impl<'a> ParticleData<'a> {
@@ -203,6 +241,18 @@ impl<'a> ParticleData<'a> {
 	/// Insert a value for a given particle into a given series.
 	pub fn insert_into(&mut self, name: &str, index: usize, value: f64) {
 		self.map.get_mut(name).expect("Invalid key")[index].push(value)
+	}
+
+	/// Changes the last value of a given series
+	fn update_last(&mut self, name: &str, index: usize, value: f64) {
+		let l = self.map.get(name).expect("inv key")[index].len();
+		self.map.get_mut(name).expect("inv k")[index][l-1] = value;
+	}
+
+	/// Adds value to the last value of a given series
+	fn add_to_last(&mut self, name: &str, index: usize, value: f64) {
+		let l = self.map.get(name).expect("inv key")[index].len();
+		self.map.get_mut(name).expect("inv k")[index][l-1] += value;
 	}
 
 	/// Get a given series, with all particles. Panics if the name is invalid.
@@ -235,6 +285,12 @@ impl<'a> ParticleVectorData<'a> {
 	/// Insert a value for a given particle into a given series.
 	pub fn insert_into(&mut self, name: &str, index: usize, value: Vector) {
 		self.map.get_mut(name).expect("Invalid key")[index].push(value)
+	}
+
+	/// Add value to the last element of a given series.
+	fn add_to_last(&mut self, name: &str, index: usize, value: Vector) {
+		let l = self.map.get(name).expect("Invalid key")[index].len();
+		self.map.get_mut(name).expect("inv k")[index][l - 1] += value;
 	}
 
 	/// Get a given series, with all particles. Panics if the name is invalid.

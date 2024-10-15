@@ -32,6 +32,6 @@ pub const FRAME_RATE: f64 = 1.0;
 
 // Simulation
 /// Length of the simulation (time)
-pub const SIM_LEN: f64 = 20.0;
+pub const SIM_LEN: f64 = 500.0;
 /// Timestep of the simulation
 pub const TIME_STEP: f64 = 0.001;

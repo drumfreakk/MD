@@ -1,5 +1,4 @@
 
-
 //! Run a molecular dynamics simulation
 
 //TODO: Error checking/handling
@@ -37,7 +36,7 @@ fn main () -> Result<(), Box<dyn Error>> {
 			BitMapBackend::<BGRXPixel>::with_buffer_and_format(buf.borrow_mut(), (W as u32, H as u32))?.into_drawing_area();
 		root.fill(&BLACK)?;
 
-		let mut chart = ChartBuilder::on(&root).margin(10).set_all_label_area_size(30).build_cartesian_2d(0.0..SIM_LEN, -10.0..10.0)?;
+		let mut chart = ChartBuilder::on(&root).margin(10).set_all_label_area_size(30).build_cartesian_2d(0.0..SIM_LEN, -15.0..15.0)?;
 
 		chart.configure_mesh().label_style(("sans-serif", 15).into_font().color(&GREEN)).axis_style(&GREEN).draw()?;
 
@@ -51,8 +50,9 @@ fn main () -> Result<(), Box<dyn Error>> {
 
 	let mut t = 0.0;
 
-	let mut p = vec![Particle::new(&(Vector::unit_x() * -10.0), 1.00, 1.0,  1.0, None, None),
-			 		 Particle::new(&(Vector::unit_x() *  10.0), 1.00, 1.0, -1.0, None, None)];
+	let mut p = vec![Particle::new(&(Vector::unit_x() * -5.0), 1.00, 1.0,  0.0, None, None),
+			 		 Particle::new(&Vector::zero(),            1.00, 1.0, 0.0, None, None),
+			 		 Particle::new(&(Vector::unit_x() *  4.0), 1.00, 1.0,  0.0, None, None)];
 
 	let mut data = DataLog::new(p.len());
 
@@ -66,65 +66,66 @@ fn main () -> Result<(), Box<dyn Error>> {
 	data.add_particle_series("energy_vdw");
 	data.add_particle_series("energy_kinetic");
 	data.add_particle_series("energy_total");
-	data.global.add_series("separation");
 	data.global.add_series("temperature");
 	data.global.add_series("temperature_scale");
-
 
 	while window.is_open() && !window.is_key_down(Key::Escape) {
 		let epoch = SystemTime::now().duration_since(start_ts).unwrap().as_secs_f64();
 		if epoch - last_flushed <= 1.0 / FRAME_RATE && t < SIM_LEN {
-
-			// Calculate all relevant quantities
-			let separation = p[0].separation(&p[1]);
-			let sep_dist = separation.len();
-
-			let r = (p[0].r + p[1].r)/2.0;
-
-			let vdw_force = vanderwaals::get_force(r, sep_dist);
-			let vdw_pot = vanderwaals::get_potential(r, sep_dist);
-			let vdw_dir = separation/sep_dist;
-
-			let temp = temperature::get_temperature(&p);
-			let scale = temperature::get_scale(&p, 0.0, 0.5);
-
-			let elec_f = electrostatic::get_force((p[0].q, p[1].q), sep_dist, true);
-			let elec_v = electrostatic::get_energy((p[0].q, p[1].q), sep_dist, true);
-
-			// Log all relevant quantities	
 			data.time.push(t);
-	
-			data.insert_particle_vector_len("force_electric", 	0, vdw_dir * (-elec_f));
-			data.insert_particle_vector_len("force_electric", 	1, vdw_dir * ( elec_f));
-			data.insert_particle_vector_len("force_vdw", 		0, vdw_dir * ( vdw_force));
-			data.insert_particle_vector_len("force_vdw", 		1, vdw_dir * (-vdw_force));
-			data.insert_particle_vector_len("force_total", 		0, vdw_dir * ( vdw_force - elec_f));
-			data.insert_particle_vector_len("force_total", 		1, vdw_dir * (-vdw_force + elec_f));
+			
 			for i in 0..p.len() {
+				p[i].a = Vector::zero();
 				data.insert_particle_vector_len("position", i, p[i].pos);
 				data.insert_particle_vector_len("velocity", i, p[i].v);	
 				data.insert_particle_vector_len("accelleration", i, p[i].a);	
-
-				data.insert_particle_add("energy_kinetic", i, p[i].m * p[i].v.sqlen() / 2.0);
-				data.insert_particle_add("energy_electric", i, elec_v);
-				data.insert_particle_add("energy_vdw", i, vdw_pot);
-				data.insert_particle_add("energy_total", i, elec_v + vdw_pot + p[i].m * p[i].v.sqlen() / 2.0);
 			}
 			
-			data.global.insert_into("separation", sep_dist);
-			data.global.insert_into("temperature", temp);
+			let scale = temperature::get_scale(&p, 0.0, 25.0);
+			
+			data.global.insert_into("temperature", temperature::get_temperature(&p));
 			data.global.insert_into("temperature_scale", scale);
-			
 
-			// Update accelerations, velocities & positions
-			p[0].a =  vdw_dir * ( vdw_force - elec_f) / p[0].m;
-			p[1].a =  vdw_dir * (-vdw_force + elec_f) / p[1].m;
-			p[0].v = p[0].v * scale;
-			p[1].v = p[1].v * scale;
+			// Iterate over each pair of particles
+			for i in 0..(p.len()-1) {
+				for j in (i+1)..(p.len()) {
+					let separation = p[i].separation(&p[j]);
+					let sep_dist = separation.len();
 
-			p[0].update(TIME_STEP);
-			p[1].update(TIME_STEP);
-			
+					let r = (p[i].r + p[j].r)/2.0;
+
+					let vdw_force = vanderwaals::get_force(r, sep_dist);
+					let vdw_pot = vanderwaals::get_potential(r, sep_dist);
+					let vdw_dir = separation/sep_dist;
+
+					let elec_f = electrostatic::get_force((p[i].q, p[j].q), sep_dist, true);
+					let elec_v = electrostatic::get_energy((p[i].q, p[j].q), sep_dist, true);
+
+					data.add_to_particle_vector_len("force_electric", 	i, vdw_dir * (-elec_f));
+					data.add_to_particle_vector_len("force_electric", 	j, vdw_dir * ( elec_f));
+					data.add_to_particle_vector_len("force_vdw", 		i, vdw_dir * ( vdw_force));
+					data.add_to_particle_vector_len("force_vdw", 		j, vdw_dir * (-vdw_force));
+					data.add_to_particle_vector_len("force_total", 		i, vdw_dir * ( vdw_force - elec_f));
+					data.add_to_particle_vector_len("force_total", 		j, vdw_dir * (-vdw_force + elec_f));
+					for k in [i,j] {
+						data.add_to_particle_add("energy_kinetic", k, p[k].m * p[k].v.sqlen() / 2.0);
+						data.add_to_particle_add("energy_electric", k, elec_v);
+						data.add_to_particle_add("energy_vdw", k, vdw_pot);
+						data.add_to_particle_add("energy_total", k, elec_v + vdw_pot + p[k].m * p[k].v.sqlen() / 2.0);
+					}
+
+					// Technically this stores the forces instead of the accellerations, but it saves dividing by the mass so often
+					p[i].a +=  vdw_dir * ( vdw_force - elec_f);
+					p[j].a +=  vdw_dir * (-vdw_force + elec_f);
+				}
+			}
+
+			for i in 0..p.len() {
+				p[i].a = p[i].a / p[i].m; // Finally convert the force to accelleration
+				p[i].v = p[i].v * scale; // Scale the temperature
+				p[i].update(TIME_STEP);
+			}
+
 			t += TIME_STEP;
 		} else {
 			{
@@ -143,9 +144,16 @@ fn main () -> Result<(), Box<dyn Error>> {
 					
 					chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 0).map(|(t, v)| {(t, v.x)}), &RED,))?;
 					chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 1).map(|(t, v)| {(t, v.x)}), &GREEN,))?;
-					//chart.draw_series(LineSeries::new(data.global_as_iter("temperature"), &MAGENTA,))?;
-					chart.draw_series(LineSeries::new(data.particle_as_iter("force_electric", 0), &CYAN,))?;
-					chart.draw_series(LineSeries::new(data.particle_as_iter("force_vdw", 0), &BLUE,))?;
+					chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 2).map(|(t, v)| {(t, v.x)}), &MAGENTA,))?;
+					chart.draw_series(LineSeries::new(data.global_as_iter("temperature"), &YELLOW,))?;
+	//				chart.draw_series(LineSeries::new(data.particle_as_iter("force_electric", 0), &CYAN,))?;
+					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("force_vdw", 0).map(|(t, v)| {(t, v.x)}), &BLUE,))?;
+					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("force_vdw", 1).map(|(t, v)| {(t, v.x)}), &CYAN,))?;
+					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("force_vdw", 2).map(|(t, v)| {(t, v.x)}), &YELLOW,))?;
+					//chart.draw_series(LineSeries::new(data.particle_as_iter("energy_total", 0), &YELLOW,))?;
+					//chart.draw_series(LineSeries::new(data.particle_as_iter("energy_total", 1), &WHITE,))?;
+					//chart.draw_series(LineSeries::new(data.particle_as_iter("energy_total", 2), &CYAN,))?;
+					chart.draw_series(LineSeries::new(data.global_as_iter("energy_total"), &WHITE,))?;
 				}
 				root.present()?;
 			}

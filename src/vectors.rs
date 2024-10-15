@@ -88,6 +88,14 @@ impl ops::Add<Vector> for Vector {
 	}
 }
 
+impl ops::AddAssign for Vector {
+	fn add_assign(&mut self, other: Self) {
+		self.x += other.x;
+		self.y += other.y;
+		self.z += other.z;
+	}
+}
+
 impl ops::Sub<Vector> for Vector {
 	type Output = Vector;
 	fn sub(self, other: Vector) -> Vector {
