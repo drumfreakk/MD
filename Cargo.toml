@@ -8,6 +8,8 @@ edition = "2021"
 [dependencies]
 #plotters = "0.3.3"
 minifb = "0.23.0"
+kiss3d = "0.33.0"
+nalgebra = "0.29.0"
 
 [dependencies.plotters]
 git = "https://github.com/plotters-rs/plotters"

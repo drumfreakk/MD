@@ -27,10 +27,17 @@ use std::borrow::{Borrow, BorrowMut};
 use std::error::Error;
 use std::time::SystemTime;
 
+use std::time::Instant;
+
+extern crate kiss3d;
+extern crate nalgebra as na;
+use na::{Vector3, UnitQuaternion};
+use kiss3d::light::Light;
+
+
 fn get_window_title(t: f64, pitch: f64, yaw: f64) -> String {
 	format!("Molecular Dynamics Simulation t={:.1}, pitch={:.2}, yaw={:.2}", t, pitch, yaw)
 }
-
 
 fn main () -> Result<(), Box<dyn Error>> {
 	let mut buf = BufferWrapper(vec![0u32; W * H]);
@@ -39,30 +46,32 @@ fn main () -> Result<(), Box<dyn Error>> {
 	let mut pitch = 0.15;
 	let mut scale = 0.7;
 
+	let mut window = kiss3d::window::Window::new("Molecular Dynamics Simulation");
+	window.set_light(Light::StickToCamera);
 	let mut t = 0.0;
 
-	let mut window = Window::new(&get_window_title(t, pitch, yaw) ,W,H,WindowOptions::default(),)?;
-	let cs = {
-		let root =
-			BitMapBackend::<BGRXPixel>::with_buffer_and_format(buf.borrow_mut(), (W as u32, H as u32))?.into_drawing_area();
-		root.fill(&BLACK)?;
-
-		//let mut chart = ChartBuilder::on(&root).margin(10).set_all_label_area_size(30).build_cartesian_2d(0.0..SIM_LEN, -100.0..100.0)?;
-		//chart.configure_mesh().label_style(("sans-serif", 15).into_font().color(&GREEN)).axis_style(&GREEN).draw()?;
-		//let mut chart = ChartBuilder::on(&root).margin(10).set_all_label_area_size(30).build_cartesian_3d(-5.0..5.0, -5.0..5.0, 0.0..SIM_LEN)?;
-		let mut chart = ChartBuilder::on(&root).margin(10).set_all_label_area_size(30).build_cartesian_3d(-5.0..5.0, -5.0..5.0, -5.0..5.0)?;
-		chart.configure_axes().label_style(("sans-serif", 15).into_font().color(&GREEN)).axis_panel_style(&GREEN).draw()?;
-		chart.with_projection(|mut pb| {
-			pb.yaw = yaw;
-			pb.pitch = pitch;
-			pb.scale = scale;
-			pb.into_matrix()
-		});
-
-		let cs = chart.into_chart_state();
-		root.present()?;
-		cs
-	};
+//	let mut window = Window::new(&get_window_title(t, pitch, yaw) ,W,H,WindowOptions::default(),)?;
+//	let cs = {
+//		let root =
+//			BitMapBackend::<BGRXPixel>::with_buffer_and_format(buf.borrow_mut(), (W as u32, H as u32))?.into_drawing_area();
+//		root.fill(&BLACK)?;
+//
+//		//let mut chart = ChartBuilder::on(&root).margin(10).set_all_label_area_size(30).build_cartesian_2d(0.0..SIM_LEN, -100.0..100.0)?;
+//		//chart.configure_mesh().label_style(("sans-serif", 15).into_font().color(&GREEN)).axis_style(&GREEN).draw()?;
+//		//let mut chart = ChartBuilder::on(&root).margin(10).set_all_label_area_size(30).build_cartesian_3d(-5.0..5.0, -5.0..5.0, 0.0..SIM_LEN)?;
+//		let mut chart = ChartBuilder::on(&root).margin(10).set_all_label_area_size(30).build_cartesian_3d(-5.0..5.0, -5.0..5.0, -5.0..5.0)?;
+//		chart.configure_axes().label_style(("sans-serif", 15).into_font().color(&GREEN)).axis_panel_style(&GREEN).draw()?;
+//		chart.with_projection(|mut pb| {
+//			pb.yaw = yaw;
+//			pb.pitch = pitch;
+//			pb.scale = scale;
+//			pb.into_matrix()
+//		});
+//
+//		let cs = chart.into_chart_state();
+//		root.present()?;
+//		cs
+//	};
 
 	let start_ts = SystemTime::now();
 	let mut last_flushed = 0.0;
@@ -72,9 +81,18 @@ fn main () -> Result<(), Box<dyn Error>> {
 	//let mut p = vec![Particle::new(&(Vector::unit_x() * -5.0), 1.00, 1.0,  0.0, None, None),
 	//		 		 Particle::new(&Vector::zero(),			1.00, 1.0,  0.0, None, None),
 	//		 		 Particle::new(&(Vector::unit_x() *  5.0), 1.00, 1.0,  0.0, None, None)];
-	let mut p = vec![Particle::new(&Vector::new(-3.0, -3.0, -3.0),	1.0, 1.0,  0.0, None, None),
-			 		 Particle::new(&Vector::zero(),					1.0, 3.0,  0.0, None, None),
+	let mut p = vec![Particle::new(&Vector::new(-3.0, -2.0, -2.0),	1.0, 3.0,  0.0, None, None),
+			 		 Particle::new(&Vector::zero(),					1.0, 1.0,  0.0, None, None),
 			 		 Particle::new(&Vector::new(0.0, 5.0, 0.0),		1.5, 1.0,  0.0, None, None)];
+
+	let mut c = Vec::new();
+	for i in 0..p.len() {
+		c.push(window.add_sphere(p[i].r as f32 * 2_f32.powf(1.0/6.0)));
+		c[i].data_mut().set_local_translation(na::geometry::Translation3::new(p[i].pos.x as f32, p[i].pos.y as f32, p[i].pos.y as f32));
+	}
+	c[0].set_color(1.0, 0.0, 0.0);
+	c[1].set_color(0.0, 1.0, 0.0);
+	c[2].set_color(0.0, 0.0, 1.0);
 
 	let mut data = DataLog::new(p.len());
 
@@ -91,9 +109,11 @@ fn main () -> Result<(), Box<dyn Error>> {
 	data.global.add_series("temperature");
 	data.global.add_series("temperature_scale");
 
-	while window.is_open() && !window.is_key_down(Key::Escape) {
-		let epoch = SystemTime::now().duration_since(start_ts).unwrap().as_secs_f64();
-		if epoch - last_flushed <= 1.0 / FRAME_RATE && t < SIM_LEN {
+	while window.render() {
+//	while window.is_open() && !window.is_key_down(Key::Escape) {
+		let mut epoch = SystemTime::now().duration_since(start_ts).unwrap().as_secs_f64();
+		//if epoch - last_flushed <= 1.0 / FRAME_RATE && t < SIM_LEN {
+		while epoch - last_flushed <= 1.0 / FRAME_RATE && t < SIM_LEN {
 			data.time.push(t);
 			
 			for i in 0..p.len() {
@@ -149,99 +169,107 @@ fn main () -> Result<(), Box<dyn Error>> {
 			}
 
 			t += TIME_STEP;
-		} else {
-			{
-				let root = BitMapBackend::<BGRXPixel>::with_buffer_and_format(
-					buf.borrow_mut(),
-					(W as u32, H as u32),
-				)?
-				.into_drawing_area();
-				{
-					let mut chart = cs.clone().restore(&root);
-					
-					chart.plotting_area().fill(&BLACK)?;
-
-					//chart.configure_mesh().bold_line_style(&GREEN.mix(0.2)).light_line_style(&TRANSPARENT).draw()?;
-					
-					chart.with_projection(|mut pb| {
-							pb.yaw = yaw;
-							pb.pitch = pitch;
-							pb.scale = scale;
-							pb.into_matrix()
-						});
-					chart.configure_axes().bold_grid_style(&GREEN.mix(0.2)).light_grid_style(&TRANSPARENT).draw()?;
-
-					
-					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 0).map(|(t, v)| {(t, v.x)}), &RED,))?;
-					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 1).map(|(t, v)| {(t, v.x)}), &GREEN,))?;
-					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 2).map(|(t, v)| {(t, v.x)}), &MAGENTA,))?;
-					//chart.draw_series(LineSeries::new(data.global_as_iter("temperature"), &YELLOW,))?;
-	//				chart.draw_series(LineSeries::new(data.particle_as_iter("force_electric", 0), &CYAN,))?;
-					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("force_vdw", 0).map(|(t, v)| {(t, v.x)}), &BLUE,))?;
-					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("force_vdw", 1).map(|(t, v)| {(t, v.x)}), &CYAN,))?;
-					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("force_vdw", 2).map(|(t, v)| {(t, v.x)}), &YELLOW,))?;
-					//chart.draw_series(LineSeries::new(data.particle_as_iter("energy_total", 0), &YELLOW,))?;
-					//chart.draw_series(LineSeries::new(data.particle_as_iter("energy_total", 1), &WHITE,))?;
-					//chart.draw_series(LineSeries::new(data.particle_as_iter("energy_total", 2), &CYAN,))?;
-//					chart.draw_series(LineSeries::new(data.global_as_iter("energy_total"), &WHITE,))?;
-					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 0).map(|(t, v)| {(v.x, v.y, t)}), &RED,))?;
-					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 1).map(|(t, v)| {(v.x, v.y, t)}), &GREEN,))?;
-					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 2).map(|(t, v)| {(v.x, v.y, t)}), &MAGENTA,))?;
-
-					//chart.draw_series(LineSeries::new(data.particle_vector_as_circles("position", 0, p[0].r, 200), &RED.mix(0.5),))?;
-					//chart.draw_series(LineSeries::new(data.particle_vector_as_circles("position", 1, p[1].r, 200), &GREEN.mix(0.5),))?;
-					//chart.draw_series(LineSeries::new(data.particle_vector_as_circles("position", 2, p[2].r, 200), &MAGENTA.mix(0.5),))?;
-					chart.draw_series(LineSeries::new(data.particle_vector_as_sphere("position", 0, p[0].r, data.time.len() - 1), &RED.mix(0.5),))?;
-					chart.draw_series(LineSeries::new(data.particle_vector_as_sphere("position", 1, p[1].r, data.time.len() - 1), &GREEN.mix(0.5),))?;
-					chart.draw_series(LineSeries::new(data.particle_vector_as_sphere("position", 2, p[2].r, data.time.len() - 1), &MAGENTA.mix(0.5),))?;
-					//chart.draw_series(LineSeries::new(f, &YELLOW,))?;
-				}
-				root.present()?;
-
-				let keys = window.get_keys_pressed(KeyRepeat::Yes);
-				for key in keys {
-					match key {
-						Key::Up => {
-							pitch += 0.05;
-						}
-						Key::Down => {
-							pitch -= 0.05;
-						}
-						Key::Left => {
-							yaw -= 0.05;
-						}
-						Key::Right => {
-							yaw += 0.05;
-						}
-						Key::Minus => {
-							if scale > 0.1 {
-								scale -= 0.1;
-							}
-						}
-						Key::Equal => {
-							scale += 0.1;
-						}
-						_ => {
-							continue;
-						}
-					}
-				}
-				if pitch > 3.15 {
-					pitch = -3.15;
-				} else if pitch < -3.15 {
-					pitch = 3.15;
-				}
-				if yaw > 3.15 {
-					yaw = -3.15;
-				} else if yaw < -3.15 {
-					yaw = 3.15;
-				}
-				window.set_title(&get_window_title(t, pitch, yaw));
-			}
-
-			window.update_with_buffer(buf.borrow(), W, H)?;
-			last_flushed = epoch;
+			epoch = SystemTime::now().duration_since(start_ts).unwrap().as_secs_f64();
+//		} else {
 		}
+//			println!("Rendering t={}", t);
+//			let now = Instant::now();
+			for i in 0..p.len() {
+				c[i].data_mut().set_local_translation(na::geometry::Translation3::new(p[i].pos.x as f32, p[i].pos.y as f32, p[i].pos.z as f32));
+			}
+//			{
+//				let root = BitMapBackend::<BGRXPixel>::with_buffer_and_format(
+//					buf.borrow_mut(),
+//					(W as u32, H as u32),
+//				)?
+//				.into_drawing_area();
+//				{
+//					let mut chart = cs.clone().restore(&root);
+//					
+//					chart.plotting_area().fill(&BLACK)?;
+//
+//					//chart.configure_mesh().bold_line_style(&GREEN.mix(0.2)).light_line_style(&TRANSPARENT).draw()?;
+//					
+//					chart.with_projection(|mut pb| {
+//							pb.yaw = yaw;
+//							pb.pitch = pitch;
+//							pb.scale = scale;
+//							pb.into_matrix()
+//						});
+//					chart.configure_axes().bold_grid_style(&GREEN.mix(0.2)).light_grid_style(&TRANSPARENT).draw()?;
+//
+//					
+//					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 0).map(|(t, v)| {(t, v.x)}), &RED,))?;
+//					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 1).map(|(t, v)| {(t, v.x)}), &GREEN,))?;
+//					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 2).map(|(t, v)| {(t, v.x)}), &MAGENTA,))?;
+//					//chart.draw_series(LineSeries::new(data.global_as_iter("temperature"), &YELLOW,))?;
+//	//				chart.draw_series(LineSeries::new(data.particle_as_iter("force_electric", 0), &CYAN,))?;
+//					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("force_vdw", 0).map(|(t, v)| {(t, v.x)}), &BLUE,))?;
+//					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("force_vdw", 1).map(|(t, v)| {(t, v.x)}), &CYAN,))?;
+//					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("force_vdw", 2).map(|(t, v)| {(t, v.x)}), &YELLOW,))?;
+//					//chart.draw_series(LineSeries::new(data.particle_as_iter("energy_total", 0), &YELLOW,))?;
+//					//chart.draw_series(LineSeries::new(data.particle_as_iter("energy_total", 1), &WHITE,))?;
+//					//chart.draw_series(LineSeries::new(data.particle_as_iter("energy_total", 2), &CYAN,))?;
+////					chart.draw_series(LineSeries::new(data.global_as_iter("energy_total"), &WHITE,))?;
+//					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 0).map(|(t, v)| {(v.x, v.y, t)}), &RED,))?;
+//					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 1).map(|(t, v)| {(v.x, v.y, t)}), &GREEN,))?;
+//					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 2).map(|(t, v)| {(v.x, v.y, t)}), &MAGENTA,))?;
+//
+//					//chart.draw_series(LineSeries::new(data.particle_vector_as_circles("position", 0, p[0].r, 200), &RED.mix(0.5),))?;
+//					//chart.draw_series(LineSeries::new(data.particle_vector_as_circles("position", 1, p[1].r, 200), &GREEN.mix(0.5),))?;
+//					//chart.draw_series(LineSeries::new(data.particle_vector_as_circles("position", 2, p[2].r, 200), &MAGENTA.mix(0.5),))?;
+//					chart.draw_series(LineSeries::new(data.particle_vector_as_sphere("position", 0, p[0].r, data.time.len() - 1), &RED.mix(0.5),))?;
+//					chart.draw_series(LineSeries::new(data.particle_vector_as_sphere("position", 1, p[1].r, data.time.len() - 1), &GREEN.mix(0.5),))?;
+//					chart.draw_series(LineSeries::new(data.particle_vector_as_sphere("position", 2, p[2].r, data.time.len() - 1), &MAGENTA.mix(0.5),))?;
+//					//chart.draw_series(LineSeries::new(f, &YELLOW,))?;
+//				}
+//				root.present()?;
+//
+//				let keys = window.get_keys_pressed(KeyRepeat::Yes);
+//				for key in keys {
+//					match key {
+//						Key::Up => {
+//							pitch += 0.05;
+//						}
+//						Key::Down => {
+//							pitch -= 0.05;
+//						}
+//						Key::Left => {
+//							yaw -= 0.05;
+//						}
+//						Key::Right => {
+//							yaw += 0.05;
+//						}
+//						Key::Minus => {
+//							if scale > 0.1 {
+//								scale -= 0.1;
+//							}
+//						}
+//						Key::Equal => {
+//							scale += 0.1;
+//						}
+//						_ => {
+//							continue;
+//						}
+//					}
+//				}
+//				if pitch > 3.15 {
+//					pitch = -3.15;
+//				} else if pitch < -3.15 {
+//					pitch = 3.15;
+//				}
+//				if yaw > 3.15 {
+//					yaw = -3.15;
+//				} else if yaw < -3.15 {
+//					yaw = 3.15;
+//				}
+//				window.set_title(&get_window_title(t, pitch, yaw));
+//			}
+//
+//			window.update_with_buffer(buf.borrow(), W, H)?;
+//			println!("Elapsed: {:.2?}", now.elapsed());
+			last_flushed = epoch;
+		//}
 	}
 	
 //	data.to_file("out.csv")?;
