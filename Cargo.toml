@@ -8,8 +8,13 @@ edition = "2021"
 [dependencies]
 #plotters = "0.3.3"
 minifb = "0.23.0"
-kiss3d = "0.33.0"
-nalgebra = "0.29.0"
+nalgebra = "0.32.3"
+
+embedded-graphics = "0.8.1"
+embedded-graphics-core = "0.4.0"
+
+embedded-gfx = {git = "https://github.com/Kezii/embedded-gfx.git"}
+line_drawing = "1.0.0"
 
 [dependencies.plotters]
 git = "https://github.com/plotters-rs/plotters"
