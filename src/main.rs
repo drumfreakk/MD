@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+#![allow(unused_imports)]
 
 //! Run a molecular dynamics simulation
 
@@ -7,16 +9,18 @@
 mod constants;
 mod vectors;
 mod particles;
-mod buffer;
 mod forcefield;
 mod log_data;
+
+mod embedded_gfx;
+
+mod icosphere;
 
 use crate::constants::{W, H, FRAME_RATE, SIM_LEN, TIME_STEP};
 
 use crate::vectors::Vector;
 use crate::particles::Particle;
 use crate::log_data::DataLog;
-use crate::buffer::BufferWrapper;
 use crate::forcefield::{temperature, vanderwaals, electrostatic};
 
 use minifb::{Window, WindowOptions, Key, KeyRepeat};
@@ -30,11 +34,11 @@ use std::time::SystemTime;
 use std::time::Instant;
 
 
-use embedded_gfx::mesh::K3dMesh;
-use embedded_gfx::{
+use crate::embedded_gfx::framebuffer::BufferWrapper;
+use crate::embedded_gfx::mesh::K3dMesh;
+use crate::embedded_gfx::{
 	draw::draw,
 	mesh::{Geometry, RenderMode},
-	perfcounter::PerformanceCounter,
 	K3dengine,
 };
 use embedded_graphics::Drawable;
@@ -43,19 +47,14 @@ use embedded_graphics::{
 	mono_font::{ascii::FONT_6X10, MonoTextStyle},
 	text::Text,
 };
-use embedded_graphics_core::pixelcolor::{Rgb565, WebColors};
+use embedded_graphics_core::pixelcolor::{Rgb888, WebColors};
 use nalgebra::Point3;
 
-use embedded_gfx::DrawPrimitive;
+use crate::embedded_gfx::DrawPrimitive;
 use embedded_graphics_core::pixelcolor::{RgbColor, IntoStorage};
-use line_drawing::Bresenham;
 
 
-fn get_window_title(t: f64, pitch: f64, yaw: f64) -> String {
-	format!("Molecular Dynamics Simulation t={:.1}, pitch={:.2}, yaw={:.2}", t, pitch, yaw)
-}
-
-fn make_xz_plane() -> Vec<[f32; 3]> {
+fn make_xz_plane() -> Vec<[f64; 3]> {
 	let step = 1.0;
 	let nsteps = 10;
 
@@ -63,9 +62,9 @@ fn make_xz_plane() -> Vec<[f32; 3]> {
 	for i in 0..nsteps {
 		for j in 0..nsteps {
 			vertices.push([
-				(i as f32 - nsteps as f32 / 2.0) * step,
+				(i as f64 - nsteps as f64 / 2.0) * step,
 				0.0,
-				(j as f32 - nsteps as f32 / 2.0) * step,
+				(j as f64 - nsteps as f64 / 2.0) * step,
 			]);
 		}
 	}
@@ -73,116 +72,15 @@ fn make_xz_plane() -> Vec<[f32; 3]> {
 	vertices
 }
 
-fn rgb565_to_u32(c: Rgb565) -> u32 {
-	let r_8 = ((c.r() as u32) * 527 + 23) >> 6;
-	let g_8 = ((c.g() as u32) * 259 + 33) >> 6;
-	let b_8 = ((c.b() as u32) * 527 + 23) >> 6;
-	(r_8 << 16) | (g_8 << 8) | b_8
-}
- 
-fn draw_point(buf: &mut BufferWrapper, p: nalgebra::Point2<i32>, c: Rgb565) {
-	if p.x >= 0 && p.x < W as i32 && p.y >= 0 && p.y < H as i32 {
-		buf.0[p.y as usize * W + p.x as usize] = rgb565_to_u32(c);
-	}
-}
-
-fn fill_bottom_flat_triangle(p1: Point, p2: Point, p3: Point, color: Rgb565, fb: &mut BufferWrapper){
-	let invslope1 = (p2.x - p1.x) as f32 / (p2.y - p1.y) as f32;
-	let invslope2 = (p3.x - p1.x) as f32 / (p3.y - p1.y) as f32;
-
-	let mut curx1 = p1.x as f32;
-	let mut curx2 = p1.x as f32;
-
-	for scanline_y in p1.y..=p2.y {
-		draw_horizontal_line(
-			Point::new(curx1 as i32, scanline_y),
-			Point::new(curx2 as i32, scanline_y),
-			color,
-			fb,
-		);
-
-		curx1 += invslope1;
-		curx2 += invslope2;
-	}
-}
-
-fn fill_top_flat_triangle(p1: Point, p2: Point, p3: Point, color: Rgb565, fb: &mut BufferWrapper){
-	let invslope1 = (p3.x - p1.x) as f32 / (p3.y - p1.y) as f32;
-	let invslope2 = (p3.x - p2.x) as f32 / (p3.y - p2.y) as f32;
-
-	let mut curx1 = p3.x as f32;
-	let mut curx2 = p3.x as f32;
-
-	for scanline_y in (p1.y..=p3.y).rev() {
-		draw_horizontal_line(
-			Point::new(curx1 as i32, scanline_y),
-			Point::new(curx2 as i32, scanline_y),
-			color,
-			fb,
-		);
-
-		curx1 -= invslope1;
-		curx2 -= invslope2;
-	}
-}
-
-fn draw_horizontal_line(p1: Point, p2: Point, color: Rgb565, buf: &mut BufferWrapper){
-	let start = p1.x.min(p2.x);
-	let end = p1.x.max(p2.x);
-
-	for x in start..=end {
-		draw_point(buf, nalgebra::Point2::new(x,p1.y), color);
-	}
-}
-
-fn draw_pixel(primitive: DrawPrimitive, buf: &mut BufferWrapper) {
-	match primitive {
-		DrawPrimitive::Line([p1, p2], color) => {
-			for (x, y) in Bresenham::new((p1.x, p1.y), (p2.x, p2.y)) {
-				draw_point(buf, nalgebra::Point2::new(x, y), color);
-			}
-		}
-		embedded_gfx::DrawPrimitive::ColoredPoint(p, c) => {
-			draw_point(buf, p, c);
-		}
-		DrawPrimitive::ColoredTriangle(mut vertices, color) => {
-			vertices.sort_by(|a, b| a.y.cmp(&b.y));
-			let [p1, p2, p3] = vertices
-				.iter()
-				.map(|p| embedded_graphics_core::geometry::Point::new(p.x, p.y))
-				.collect::<Vec<embedded_graphics_core::geometry::Point>>()
-				.try_into()
-				.unwrap();
-
-			if p2.y == p3.y {
-				fill_bottom_flat_triangle(p1, p2, p3, color, buf);
-			} else if p1.y == p2.y {
-				fill_top_flat_triangle(p1, p2, p3, color, buf);
-			} else {
-				let p4 = Point::new(
-					(p1.x as f32
-						+ ((p2.y - p1.y) as f32 / (p3.y - p1.y) as f32) * (p3.x - p1.x) as f32)
-						as i32,
-					p2.y,
-				);
-
-				fill_bottom_flat_triangle(p1, p2, p4, color, buf);
-				fill_top_flat_triangle(p2, p4, p3, color, buf);
-			}
-		}
-	} //TODO make this use the same type of points
-}
-
 fn main () -> Result<(), Box<dyn Error>> {
-	let mut buf = BufferWrapper(vec![0u32; W * H]);
-
+	let mut fb = BufferWrapper(vec![0u32; W * H]);
+	let mut window = Window::new("MD Sim", W, H, WindowOptions::default(),)?;
+	
 	let mut t = 0.0;
-
-//	let mut window = Window::new(&get_window_title(t, pitch, yaw) ,W,H,WindowOptions::default(),)?;
 
 //	let cs = {
 //		let root =
-//			BitMapBackend::<BGRXPixel>::with_buffer_and_format(buf.borrow_mut(), (W as u32, H as u32))?.into_drawing_area();
+//			BitMapBackend::<BGRXPixel>::with_buffer_and_format(fb.borrow_mut(), (W as u32, H as u32))?.into_drawing_area();
 //		root.fill(&BLACK)?;
 //
 //		//let mut chart = ChartBuilder::on(&root).margin(10).set_all_label_area_size(30).build_cartesian_2d(0.0..SIM_LEN, -100.0..100.0)?;
@@ -205,91 +103,12 @@ fn main () -> Result<(), Box<dyn Error>> {
 	let start_ts = SystemTime::now();
 	let mut last_flushed = 0.0;
 
-	let mut window = Window::new("MD Sim", W, H, WindowOptions::default(),)?;
-	
-	let ground_vertices = make_xz_plane();
-	let mut ground = K3dMesh::new(Geometry {
-		vertices: &ground_vertices,
-		faces: &[],
-		colors: &[],
-		lines: &[],
-		normals: &[],
-	});
-	ground.set_color(Rgb565::new(0, 63, 0));
-
-	let mut lines = K3dMesh::new(Geometry {
-		vertices: &[[5.0,0.0,5.0], [-5.0,0.0,5.0], [5.0,0.0,-5.0], [-5.0,0.0,-5.0]],
-		faces: &[],
-		colors: &[],
-		lines: &[[0,1], [1,3], [2,3]],
-		normals: &[],
-	});
-	lines.set_color(Rgb565::new(31,0,0));
-	lines.set_render_mode(RenderMode::Lines);
-
-	let mut triangle = K3dMesh::new(Geometry {
-		vertices: &[[0.0,-1.0,3.0], [1.0,-1.0,0.0], [3.0,-1.0,1.0], [3.0,0.0,0.5]],
-		faces: &[[0,1,2]],
-		colors: &[],
-		lines: &[],
-		normals: &[[0.0,1.0,1.0]],
-	});
-	triangle.set_color(Rgb565::new(0,0,31));
-	triangle.set_render_mode(RenderMode::SolidLightDir(nalgebra::Vector3::new(0.0,-1.0,1.0)));
-	let mut triangle2 = K3dMesh::new(Geometry {
-		vertices: &[[0.0,-0.5,1.5], [0.5,-0.5,0.0], [1.5,-0.5,0.5]],
-		faces: &[[0,1,2]],
-		colors: &[],
-		lines: &[],
-		normals: &[],
-	});
-	triangle2.set_color(Rgb565::new(31,0,0));
-	triangle2.set_render_mode(RenderMode::Solid);
-
-	let mut out = Vec::new();
-	let circle_res_i: i32 = 100;
-	let circle_res = circle_res_i as f64;
-	let radius = 1.0;	
-	for i in 0..circle_res_i {
-		let phi = (1.0 - 2.0 * i as f64 / circle_res).acos();
-		let theta = std::f64::consts::PI * (3.0 - 5_f64.sqrt()) * i as f64;
-		out.push([radius * theta.cos() * phi.sin(), radius * theta.sin() * phi.sin(), radius *  phi.cos()]);
-	}
-
-	let mut faces = Vec::new();
-	for i in 0..out.len()-2 {
-		faces.push([i, i+1, i+2]);
-	}
-	let mut sphere = K3dMesh::new(Geometry {
-		vertices: &out,
-		faces: &faces,
-		colors: &[],
-		lines: &[],
-		normals: &[],
-	});
-	sphere.set_color(Rgb565::new(31,0,0));
-	sphere.set_render_mode(RenderMode::SolidLightDir(nalgebra::Vector3::new(0.0,-1.0,1.0)));
-
 	let mut engine = K3dengine::new(W as u16, H as u16);
-	engine.camera.set_position(Point3::new(5.0, 8.0, 0.0));
+	engine.camera.set_position(Point3::new(10.0, 10.0, 0.0));
 	engine.camera.set_target(Point3::new(0.0, 0.0, 0.0));
 	engine.camera.set_fovy(3.141592 / 4.0);
 	
-	let mut angle: f32 = 0.0;
-
-	loop {
-			for i in 0..(W * H) {
-				buf.0[i] = 0;
-			}
-//WARNING: Renders in the order listed here, doesn't check if something should obscure something else
-			engine.camera.set_position(Point3::new(5.0 * angle.cos(), 8.0, 5.0 * angle.sin()));
-			engine.render([&lines, &triangle2, &triangle, &sphere, &ground], |p| draw_pixel(p, &mut buf));
-			window.update_with_buffer(buf.borrow(), W, H)?;
-			angle += 0.005;
-	}
-/*	return Ok(());
-
-
+	let mut angle: f64 = 0.0;
 
 
 	//TODO: multiple graphs, split this file up
@@ -315,6 +134,26 @@ fn main () -> Result<(), Box<dyn Error>> {
 	data.add_particle_series("energy_total");
 	data.global.add_series("temperature");
 	data.global.add_series("temperature_scale");
+
+	let s = icosphere::create_icosphere(2);
+	let norms = icosphere::get_normals(&s.0, &s.1);
+	let mut sphere = K3dMesh::new(Geometry {
+		vertices: &s.0,
+		faces: &s.1,
+		colors: &[],
+		lines: &[],
+		normals: &norms,
+	});
+
+	let mut spheres = Vec::new();
+	for i in 0..p.len() {
+		spheres.push(sphere);
+		spheres[i].set_position(p[i].pos.x, p[i].pos.y, p[i].pos.z);
+		spheres[i].set_scale(p[i].r);
+	}
+	spheres[0].set_color(Rgb888::new(255,0,0));
+	spheres[1].set_color(Rgb888::new(0,255,0));
+	spheres[2].set_color(Rgb888::new(0,0,255));
 
 	while window.is_open() && !window.is_key_down(Key::Escape) {
 		let mut epoch = SystemTime::now().duration_since(start_ts).unwrap().as_secs_f64();
@@ -376,12 +215,21 @@ fn main () -> Result<(), Box<dyn Error>> {
 			t += TIME_STEP;
 			epoch = SystemTime::now().duration_since(start_ts).unwrap().as_secs_f64();
 		} else {
-//			println!("Rendering t={}", t);
-//			let now = Instant::now();
+			println!("Rendering t={}", t);
+			let now = Instant::now();
+			fb.clear_buffer();
+			for i in 0..p.len(){
+				spheres[i].set_position(p[i].pos.x, p[i].pos.y, p[i].pos.z);
+				spheres[i].set_render_mode(RenderMode::SolidLightDir(nalgebra::Vector3::new(angle.cos(),0.0,angle.sin())));
+			}
+			//engine.camera.set_position(Point3::new(5.0 * angle.cos(), 8.0, 5.0 * angle.sin()));
+			engine.render(&spheres, |p| draw(p, &mut fb));
+			window.update_with_buffer(fb.borrow(), W, H)?;
+			//angle += 0.005;
 
 //			{
 //				let root = BitMapBackend::<BGRXPixel>::with_buffer_and_format(
-//					buf.borrow_mut(),
+//					fb.borrow_mut(),
 //					(W as u32, H as u32),
 //				)?
 //				.into_drawing_area();
@@ -468,8 +316,8 @@ fn main () -> Result<(), Box<dyn Error>> {
 //				window.set_title(&get_window_title(t, pitch, yaw));
 //			}
 //
-//			window.update_with_buffer(buf.borrow(), W, H)?;
-//			println!("Elapsed: {:.2?}", now.elapsed());
+//			window.update_with_buffer(fb.borrow(), W, H)?;
+			println!("Elapsed: {:.2?}", now.elapsed());
 		
 			
 		
@@ -478,8 +326,8 @@ fn main () -> Result<(), Box<dyn Error>> {
 		}
 	}
 	
-//	data.to_file("out.csv")?;
+	data.to_file("out.csv")?;
 
-	Ok(()) */
+	Ok(())
 }
 

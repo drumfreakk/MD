@@ -6,6 +6,7 @@ The other code for displaying the graph in main.rs is also adapted from this rep
 */
 
 use std::borrow::{Borrow, BorrowMut};
+use embedded_graphics_core::pixelcolor::Rgb565;
 
 pub struct BufferWrapper(pub Vec<u32>);
 impl Borrow<[u8]> for BufferWrapper {
@@ -40,5 +41,13 @@ impl Borrow<[u32]> for BufferWrapper {
 impl BorrowMut<[u32]> for BufferWrapper {
 	fn borrow_mut(&mut self) -> &mut [u32] {
 		self.0.as_mut_slice()
+	}
+}
+
+impl BufferWrapper {
+	pub fn clear_buffer(&mut self) {
+		for i in 0..self.0.len() {
+			self.0[i] = 0;
+		}
 	}
 }
