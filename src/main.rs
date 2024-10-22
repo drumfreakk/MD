@@ -1,5 +1,5 @@
-#![allow(dead_code)]
-#![allow(unused_imports)]
+//#![allow(dead_code)]
+//#![allow(unused_imports)]
 
 //! Run a molecular dynamics simulation
 
@@ -102,14 +102,16 @@ fn main () -> Result<(), Box<dyn Error>> {
 
 	let start_ts = SystemTime::now();
 	let mut last_flushed = 0.0;
+	
+	let mut theta: f64 = 0.0;
+	let mut phi: f64 = 0.0;
+	let mut zoom: f64 = 10.0;
 
 	let mut engine = K3dengine::new(W as u16, H as u16);
-	engine.camera.set_position(Point3::new(10.0, 10.0, 0.0));
+	engine.camera.set_position(Point3::new(0.0, 0.0, zoom));
 	engine.camera.set_target(Point3::new(0.0, 0.0, 0.0));
 	engine.camera.set_fovy(3.141592 / 4.0);
 	
-	let mut angle: f64 = 0.0;
-
 
 	//TODO: multiple graphs, split this file up
 
@@ -137,7 +139,7 @@ fn main () -> Result<(), Box<dyn Error>> {
 
 	let s = icosphere::create_icosphere(2);
 	let norms = icosphere::get_normals(&s.0, &s.1);
-	let mut sphere = K3dMesh::new(Geometry {
+	let sphere = K3dMesh::new(Geometry {
 		vertices: &s.0,
 		faces: &s.1,
 		colors: &[],
@@ -150,6 +152,7 @@ fn main () -> Result<(), Box<dyn Error>> {
 		spheres.push(sphere);
 		spheres[i].set_position(p[i].pos.x, p[i].pos.y, p[i].pos.z);
 		spheres[i].set_scale(p[i].r);
+		spheres[i].set_render_mode(RenderMode::SolidLightDir(nalgebra::Vector3::new(0.0, 0.0, 1.0)));
 	}
 	spheres[0].set_color(Rgb888::new(255,0,0));
 	spheres[1].set_color(Rgb888::new(0,255,0));
@@ -167,7 +170,7 @@ fn main () -> Result<(), Box<dyn Error>> {
 				data.insert_particle_vector_len("accelleration", i, p[i].a);	
 			}
 			
-			let scale = temperature::get_scale(&p, 0.0, 5.0);
+			let scale = temperature::get_scale(&p, 0.0, 2.5);
 			
 			data.global.insert_into("temperature", temperature::get_temperature(&p));
 			data.global.insert_into("temperature_scale", scale);
@@ -215,19 +218,56 @@ fn main () -> Result<(), Box<dyn Error>> {
 			t += TIME_STEP;
 			epoch = SystemTime::now().duration_since(start_ts).unwrap().as_secs_f64();
 		} else {
-			println!("Rendering t={}", t);
-			let now = Instant::now();
+			let keys = window.get_keys_pressed(KeyRepeat::Yes);
+			for key in keys {
+				match key {
+					Key::Up => {
+						phi += 0.05;
+					}
+					Key::Down => {
+						phi -= 0.05;
+					}
+					Key::Left => {
+						theta -= 0.05;
+					}
+					Key::Right => {
+						theta += 0.05;
+					}
+					Key::Minus => {
+						if zoom > 0.1 {
+							zoom += 0.1;
+						}
+					}
+					Key::Equal => {
+						zoom -= 0.1;
+					}
+					_ => {
+						continue;
+					}
+				}
+			}
+			if phi > 3.15 {
+				phi = -3.15;
+			} else if phi < -3.15 {
+				phi = 3.15;
+			}
+			if theta > 3.15 {
+				theta = -3.15;
+			} else if theta < -3.15 {
+				theta = 3.15;
+			}		
+
 			fb.clear_buffer();
 			for i in 0..p.len(){
 				spheres[i].set_position(p[i].pos.x, p[i].pos.y, p[i].pos.z);
-				spheres[i].set_render_mode(RenderMode::SolidLightDir(nalgebra::Vector3::new(angle.cos(),0.0,angle.sin())));
 			}
-			//engine.camera.set_position(Point3::new(5.0 * angle.cos(), 8.0, 5.0 * angle.sin()));
+			engine.camera.set_position(Point3::new(zoom * theta.cos() * phi.sin(), zoom * theta.sin() * phi.sin(), zoom * phi.cos()));
+			
+		//TODO: fix rendering order
 			engine.render(&spheres, |p| draw(p, &mut fb));
 			window.update_with_buffer(fb.borrow(), W, H)?;
 			//angle += 0.005;
 
-//			{
 //				let root = BitMapBackend::<BGRXPixel>::with_buffer_and_format(
 //					fb.borrow_mut(),
 //					(W as u32, H as u32),
@@ -275,58 +315,12 @@ fn main () -> Result<(), Box<dyn Error>> {
 //				}
 //				root.present()?;
 //
-//				let keys = window.get_keys_pressed(KeyRepeat::Yes);
-//				for key in keys {
-//					match key {
-//						Key::Up => {
-//							pitch += 0.05;
-//						}
-//						Key::Down => {
-//							pitch -= 0.05;
-//						}
-//						Key::Left => {
-//							yaw -= 0.05;
-//						}
-//						Key::Right => {
-//							yaw += 0.05;
-//						}
-//						Key::Minus => {
-//							if scale > 0.1 {
-//								scale -= 0.1;
-//							}
-//						}
-//						Key::Equal => {
-//							scale += 0.1;
-//						}
-//						_ => {
-//							continue;
-//						}
-//					}
-//				}
-//				if pitch > 3.15 {
-//					pitch = -3.15;
-//				} else if pitch < -3.15 {
-//					pitch = 3.15;
-//				}
-//				if yaw > 3.15 {
-//					yaw = -3.15;
-//				} else if yaw < -3.15 {
-//					yaw = 3.15;
-//				}
-//				window.set_title(&get_window_title(t, pitch, yaw));
-//			}
-//
-//			window.update_with_buffer(fb.borrow(), W, H)?;
-			println!("Elapsed: {:.2?}", now.elapsed());
-		
-			
-		
 
 			last_flushed = epoch;
 		}
 	}
 	
-	data.to_file("out.csv")?;
+//	data.to_file("out.csv")?;
 
 	Ok(())
 }
