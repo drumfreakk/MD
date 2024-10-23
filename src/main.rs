@@ -261,12 +261,25 @@ fn main () -> Result<(), Box<dyn Error>> {
 			for i in 0..p.len(){
 				spheres[i].set_position(p[i].pos.x, p[i].pos.y, p[i].pos.z);
 			}
-			engine.camera.set_position(Point3::new(zoom * theta.cos() * phi.sin(), zoom * theta.sin() * phi.sin(), zoom * phi.cos()));
+			let x = zoom * theta.cos() * phi.sin();
+			let y = zoom * theta.sin() * phi.sin();
+			let z = zoom * phi.cos();
+		
+			// not the nicest way to do things but it works
+			// TODO: fr now use one type of vector
+			engine.camera.set_position(Point3::new(x, y, z));
 			
-		//TODO: fix rendering order
-			engine.render(&spheres, |p| draw(p, &mut fb));
+			let camera = Vector::new(x, y, z);
+			let mut r = Vec::new();
+			for i in 0..p.len() {
+				r.push((i, (camera-p[i].pos).sqlen()));
+			}
+			r.sort_unstable_by(|a,b| b.1.partial_cmp(&a.1).unwrap());
+			for i in r {
+				engine.render(&[spheres[i.0]], |p| draw(p, &mut fb));
+			}
+			
 			window.update_with_buffer(fb.borrow(), W, H)?;
-			//angle += 0.005;
 
 //				let root = BitMapBackend::<BGRXPixel>::with_buffer_and_format(
 //					fb.borrow_mut(),
