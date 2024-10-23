@@ -21,7 +21,7 @@ use crate::constants::{W, H, FRAME_RATE, SIM_LEN, TIME_STEP};
 use crate::vectors::Vector;
 use crate::particles::Particle;
 use crate::log_data::DataLog;
-use crate::forcefield::{temperature, vanderwaals, electrostatic};
+use crate::forcefield::{temperature, vanderwaals, electrostatic, borders};
 
 use minifb::{Window, WindowOptions, Key, KeyRepeat};
 use plotters::prelude::*;
@@ -105,12 +105,13 @@ fn main () -> Result<(), Box<dyn Error>> {
 	
 	let mut theta: f64 = 0.0;
 	let mut phi: f64 = 0.0;
-	let mut zoom: f64 = 10.0;
+	let mut zoom: f64 = 20.0;
 
 	let mut engine = K3dengine::new(W as u16, H as u16);
 	engine.camera.set_position(Point3::new(0.0, 0.0, zoom));
-	engine.camera.set_target(Point3::new(0.0, 0.0, 0.0));
+	engine.camera.set_target(Point3::new(5.0, 5.0, 5.0));
 	engine.camera.set_fovy(3.141592 / 4.0);
+	engine.camera.far = 30.0;
 	
 
 	//TODO: multiple graphs, split this file up
@@ -118,9 +119,9 @@ fn main () -> Result<(), Box<dyn Error>> {
 	//let mut p = vec![Particle::new(&(Vector::unit_x() * -5.0), 1.00, 1.0,  0.0, None, None),
 	//		 		 Particle::new(&Vector::zero(),			1.00, 1.0,  0.0, None, None),
 	//		 		 Particle::new(&(Vector::unit_x() *  5.0), 1.00, 1.0,  0.0, None, None)];
-	let mut p = vec![Particle::new(&Vector::new(-3.0, -2.0, -2.0),	1.0, 3.0,  0.0, None, None),
-			 		 Particle::new(&Vector::zero(),					1.0, 1.0,  0.0, None, None),
-			 		 Particle::new(&Vector::new(0.0, 5.0, 0.0),		1.5, 1.0,  0.0, None, None)];
+	let mut p = vec![Particle::new(&Vector::new(1.0, 1.0, 1.0),  1.0, 3.0,  0.0, None, None),
+			 		 Particle::new(&Vector::new(4.0, 3.0, 1.0),     1.0, 1.0,  0.0, None, None),
+			 		 Particle::new(&Vector::new(1.0, 5.0, 1.0),     1.5, 1.0,  0.0, None, None)];
 
 	let mut data = DataLog::new(p.len());
 
@@ -170,7 +171,7 @@ fn main () -> Result<(), Box<dyn Error>> {
 				data.insert_particle_vector_len("accelleration", i, p[i].a);	
 			}
 			
-			let scale = temperature::get_scale(&p, 0.0, 2.5);
+			let scale = temperature::get_scale(&p, 0.0, 50.0);
 			
 			data.global.insert_into("temperature", temperature::get_temperature(&p));
 			data.global.insert_into("temperature_scale", scale);
@@ -210,6 +211,9 @@ fn main () -> Result<(), Box<dyn Error>> {
 			}
 
 			for i in 0..p.len() {
+				let f = borders::get_force(p[i].r, &p[i].pos);
+				p[i].a += f;
+
 				p[i].a = p[i].a / p[i].m; // Finally convert the force to accelleration
 				p[i].v = p[i].v * scale; // Scale the temperature
 				p[i].update(TIME_STEP);

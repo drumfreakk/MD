@@ -4,6 +4,7 @@
 pub mod temperature;
 pub mod vanderwaals;
 pub mod electrostatic;
+pub mod borders;
 
 //TODO: boundaries/borders
 //TODO: cutoffs for interaction

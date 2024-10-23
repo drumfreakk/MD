@@ -1,6 +1,8 @@
 
 //! Several (natural) constants used in several places
 
+use crate::vectors::Vector;
+
 /* FORCEFIELD */
 // Temperature 
 /// Boltzmann Constant
@@ -20,6 +22,17 @@ pub const ELEMENTARY_CHARGE: f64 = 130.0;
 /// Dielectric permittivity of a vacuum
 pub const PERMITTIVITY_VACUUM: f64 = 1.0;
 
+// Borders
+/// The border of the system in the x direction. The other border is at the origin.
+pub const BORDER_X: f64 = 10.0;
+/// The border of the system in the y direction. The other border is at the origin.
+pub const BORDER_Y: f64 = 10.0;
+/// The border of the system in the z direction. The other border is at the origin.
+pub const BORDER_Z: f64 = 10.0;
+/// 4 times the repulsion strength of the borders.
+pub const BORDER_4_EPSILON: f64 = 0.1;
+/// The range at which the border potential is calculated.
+pub const BORDER_RANGE: f64 = 1.0;
 
 /* MAIN */
 // Display
