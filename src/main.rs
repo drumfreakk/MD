@@ -1,5 +1,3 @@
-//#![allow(dead_code)]
-//#![allow(unused_imports)]
 
 //! Run a molecular dynamics simulation
 
@@ -10,18 +8,22 @@ mod constants;
 mod vectors;
 mod particles;
 mod forcefield;
+mod framebuffer;
 mod log_data;
+mod plots;
 
 mod embedded_gfx;
 
 mod icosphere;
 
-use crate::constants::{W, H, FRAME_RATE, SIM_LEN, TIME_STEP};
+use crate::constants::{W, H, FRAME_RATE, SIM_LEN, TIME_STEP, BORDER_X, BORDER_Y, BORDER_Z};
 
 use crate::vectors::Vector;
 use crate::particles::Particle;
 use crate::log_data::DataLog;
 use crate::forcefield::{temperature, vanderwaals, electrostatic, borders};
+use crate::framebuffer::FrameBuffer;
+use crate::plots::Plot;
 
 use minifb::{Window, WindowOptions, Key, KeyRepeat};
 use plotters::prelude::*;
@@ -31,74 +33,21 @@ use std::borrow::{Borrow, BorrowMut};
 use std::error::Error;
 use std::time::SystemTime;
 
-use std::time::Instant;
-
-
-use crate::embedded_gfx::framebuffer::BufferWrapper;
-use crate::embedded_gfx::mesh::K3dMesh;
-use crate::embedded_gfx::{
-	draw::draw,
-	mesh::{Geometry, RenderMode},
-	K3dengine,
-};
-use embedded_graphics::Drawable;
-use embedded_graphics::{
-	geometry::Point,
-	mono_font::{ascii::FONT_6X10, MonoTextStyle},
-	text::Text,
-};
-use embedded_graphics_core::pixelcolor::{Rgb888, WebColors};
+use crate::embedded_gfx::{DrawPrimitive, K3dengine};
+use crate::embedded_gfx::mesh::{K3dMesh, Geometry, RenderMode};
+use crate::embedded_gfx::draw::draw;
+use embedded_graphics_core::pixelcolor::Rgb888;
 use nalgebra::Point3;
 
-use crate::embedded_gfx::DrawPrimitive;
-use embedded_graphics_core::pixelcolor::{RgbColor, IntoStorage};
-
-
-fn make_xz_plane() -> Vec<[f64; 3]> {
-	let step = 1.0;
-	let nsteps = 10;
-
-	let mut vertices = Vec::new();
-	for i in 0..nsteps {
-		for j in 0..nsteps {
-			vertices.push([
-				(i as f64 - nsteps as f64 / 2.0) * step,
-				0.0,
-				(j as f64 - nsteps as f64 / 2.0) * step,
-			]);
-		}
-	}
-
-	vertices
-}
 
 fn main () -> Result<(), Box<dyn Error>> {
-	let mut fb = BufferWrapper(vec![0u32; W * H]);
-	let mut window = Window::new("MD Sim", W, H, WindowOptions::default(),)?;
+	let mut sim_fb = FrameBuffer::new(W, H);
+	let mut plot = Plot::new(W, H, 10, [0.0, SIM_LEN], [-10.0, 10.0], Rgb888::new(0,0,0), Rgb888::new(0,255,0));
+	
+	let mut sim_window = Window::new("MD Sim", W, H, WindowOptions::default(),)?;
+	let mut data_window = Window::new("MD Sim Data", W, H, WindowOptions::default(),)?;
 	
 	let mut t = 0.0;
-
-//	let cs = {
-//		let root =
-//			BitMapBackend::<BGRXPixel>::with_buffer_and_format(fb.borrow_mut(), (W as u32, H as u32))?.into_drawing_area();
-//		root.fill(&BLACK)?;
-//
-//		//let mut chart = ChartBuilder::on(&root).margin(10).set_all_label_area_size(30).build_cartesian_2d(0.0..SIM_LEN, -100.0..100.0)?;
-//		//chart.configure_mesh().label_style(("sans-serif", 15).into_font().color(&GREEN)).axis_style(&GREEN).draw()?;
-//		//let mut chart = ChartBuilder::on(&root).margin(10).set_all_label_area_size(30).build_cartesian_3d(-5.0..5.0, -5.0..5.0, 0.0..SIM_LEN)?;
-//		let mut chart = ChartBuilder::on(&root).margin(10).set_all_label_area_size(30).build_cartesian_3d(-5.0..5.0, -5.0..5.0, -5.0..5.0)?;
-//		chart.configure_axes().label_style(("sans-serif", 15).into_font().color(&GREEN)).axis_panel_style(&GREEN).draw()?;
-//		chart.with_projection(|mut pb| {
-//			pb.yaw = yaw;
-//			pb.pitch = pitch;
-//			pb.scale = scale;
-//			pb.into_matrix()
-//		});
-//
-//		let cs = chart.into_chart_state();
-//		root.present()?;
-//		cs
-//	};
 
 	let start_ts = SystemTime::now();
 	let mut last_flushed = 0.0;
@@ -113,12 +62,26 @@ fn main () -> Result<(), Box<dyn Error>> {
 	engine.camera.set_fovy(3.141592 / 4.0);
 	engine.camera.far = 30.0;
 	
+	let mut b = make_xy_plane(0.0);
+	let mut z1 = make_xy_plane(BORDER_Z);
+	let mut x0 = make_yz_plane(0.0);
+	let mut x1 = make_yz_plane(BORDER_X);
+	let mut y0 = make_xz_plane(0.0);
+	let mut y1 = make_xz_plane(BORDER_Y);
+	b.append(&mut z1);
+	b.append(&mut x0);
+	b.append(&mut x1);
+	b.append(&mut y0);
+	b.append(&mut y1);
+	let mut borders = K3dMesh::new(Geometry {
+		vertices: &b,
+		faces: &[], colors: &[], lines: &[], normals: &[]
+	});
+	borders.set_color(Rgb888::new(255,255,255));
+
 
 	//TODO: multiple graphs, split this file up
 
-	//let mut p = vec![Particle::new(&(Vector::unit_x() * -5.0), 1.00, 1.0,  0.0, None, None),
-	//		 		 Particle::new(&Vector::zero(),			1.00, 1.0,  0.0, None, None),
-	//		 		 Particle::new(&(Vector::unit_x() *  5.0), 1.00, 1.0,  0.0, None, None)];
 	let mut p = vec![Particle::new(&Vector::new(1.0, 1.0, 1.0),  1.0, 3.0,  0.0, None, None),
 			 		 Particle::new(&Vector::new(4.0, 3.0, 1.0),     1.0, 1.0,  0.0, None, None),
 			 		 Particle::new(&Vector::new(1.0, 5.0, 1.0),     1.5, 1.0,  0.0, None, None)];
@@ -159,8 +122,9 @@ fn main () -> Result<(), Box<dyn Error>> {
 	spheres[1].set_color(Rgb888::new(0,255,0));
 	spheres[2].set_color(Rgb888::new(0,0,255));
 
-	while window.is_open() && !window.is_key_down(Key::Escape) {
-		let mut epoch = SystemTime::now().duration_since(start_ts).unwrap().as_secs_f64();
+	while sim_window.is_open()  &&  !sim_window.is_key_down(Key::Escape) &&
+		  data_window.is_open() && !data_window.is_key_down(Key::Escape) {
+		let epoch = SystemTime::now().duration_since(start_ts).unwrap().as_secs_f64();
 		if epoch - last_flushed <= 1.0 / FRAME_RATE && t < SIM_LEN {
 			data.time.push(t);
 			
@@ -219,10 +183,11 @@ fn main () -> Result<(), Box<dyn Error>> {
 				p[i].update(TIME_STEP);
 			}
 
+			plot.plot_point([t, t], Rgb888::new(255,255,255));
+
 			t += TIME_STEP;
-			epoch = SystemTime::now().duration_since(start_ts).unwrap().as_secs_f64();
 		} else {
-			let keys = window.get_keys_pressed(KeyRepeat::Yes);
+			let keys = sim_window.get_keys_pressed(KeyRepeat::Yes);
 			for key in keys {
 				match key {
 					Key::Up => {
@@ -261,7 +226,7 @@ fn main () -> Result<(), Box<dyn Error>> {
 				theta = 3.15;
 			}		
 
-			fb.clear_buffer();
+			sim_fb.clear_buffer();
 			for i in 0..p.len(){
 				spheres[i].set_position(p[i].pos.x, p[i].pos.y, p[i].pos.z);
 			}
@@ -272,6 +237,7 @@ fn main () -> Result<(), Box<dyn Error>> {
 			// not the nicest way to do things but it works
 			// TODO: fr now use one type of vector
 			engine.camera.set_position(Point3::new(x, y, z));
+			engine.render(&[borders], |p| draw(p, &mut sim_fb));
 			
 			let camera = Vector::new(x, y, z);
 			let mut r = Vec::new();
@@ -280,13 +246,14 @@ fn main () -> Result<(), Box<dyn Error>> {
 			}
 			r.sort_unstable_by(|a,b| b.1.partial_cmp(&a.1).unwrap());
 			for i in r {
-				engine.render(&[spheres[i.0]], |p| draw(p, &mut fb));
+				engine.render(&[spheres[i.0]], |p| draw(p, &mut sim_fb));
 			}
 			
-			window.update_with_buffer(fb.borrow(), W, H)?;
-
+			sim_window.update_with_buffer(sim_fb.borrow(), W, H)?;
+			
+//			{
 //				let root = BitMapBackend::<BGRXPixel>::with_buffer_and_format(
-//					fb.borrow_mut(),
+//					data_fb.borrow_mut(),
 //					(W as u32, H as u32),
 //				)?
 //				.into_drawing_area();
@@ -295,21 +262,12 @@ fn main () -> Result<(), Box<dyn Error>> {
 //					
 //					chart.plotting_area().fill(&BLACK)?;
 //
-//					//chart.configure_mesh().bold_line_style(&GREEN.mix(0.2)).light_line_style(&TRANSPARENT).draw()?;
+//					chart.configure_mesh().bold_line_style(&GREEN.mix(0.2)).light_line_style(&TRANSPARENT).draw()?;
 //					
-//					chart.with_projection(|mut pb| {
-//							pb.yaw = yaw;
-//							pb.pitch = pitch;
-//							pb.scale = scale;
-//							pb.into_matrix()
-//						});
-//					chart.configure_axes().bold_grid_style(&GREEN.mix(0.2)).light_grid_style(&TRANSPARENT).draw()?;
-//
-//					
-//					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 0).map(|(t, v)| {(t, v.x)}), &RED,))?;
-//					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 1).map(|(t, v)| {(t, v.x)}), &GREEN,))?;
-//					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 2).map(|(t, v)| {(t, v.x)}), &MAGENTA,))?;
-//					//chart.draw_series(LineSeries::new(data.global_as_iter("temperature"), &YELLOW,))?;
+//					chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 0).map(|(t, v)| {(t, v.x)}), &RED,))?;
+//					chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 1).map(|(t, v)| {(t, v.x)}), &GREEN,))?;
+//					chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 2).map(|(t, v)| {(t, v.x)}), &MAGENTA,))?;
+//					chart.draw_series(LineSeries::new(data.global_as_iter("temperature"), &YELLOW,))?;
 //	//				chart.draw_series(LineSeries::new(data.particle_as_iter("force_electric", 0), &CYAN,))?;
 //					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("force_vdw", 0).map(|(t, v)| {(t, v.x)}), &BLUE,))?;
 //					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("force_vdw", 1).map(|(t, v)| {(t, v.x)}), &CYAN,))?;
@@ -325,13 +283,11 @@ fn main () -> Result<(), Box<dyn Error>> {
 //					//chart.draw_series(LineSeries::new(data.particle_vector_as_circles("position", 0, p[0].r, 200), &RED.mix(0.5),))?;
 //					//chart.draw_series(LineSeries::new(data.particle_vector_as_circles("position", 1, p[1].r, 200), &GREEN.mix(0.5),))?;
 //					//chart.draw_series(LineSeries::new(data.particle_vector_as_circles("position", 2, p[2].r, 200), &MAGENTA.mix(0.5),))?;
-//					chart.draw_series(LineSeries::new(data.particle_vector_as_sphere("position", 0, p[0].r, data.time.len() - 1), &RED.mix(0.5),))?;
-//					chart.draw_series(LineSeries::new(data.particle_vector_as_sphere("position", 1, p[1].r, data.time.len() - 1), &GREEN.mix(0.5),))?;
-//					chart.draw_series(LineSeries::new(data.particle_vector_as_sphere("position", 2, p[2].r, data.time.len() - 1), &MAGENTA.mix(0.5),))?;
 //					//chart.draw_series(LineSeries::new(f, &YELLOW,))?;
 //				}
 //				root.present()?;
-//
+//			}
+			data_window.update_with_buffer(plot.fb.borrow(), W, H)?;
 
 			last_flushed = epoch;
 		}
@@ -342,3 +298,54 @@ fn main () -> Result<(), Box<dyn Error>> {
 	Ok(())
 }
 
+fn make_xz_plane(y: f64) -> Vec<[f64; 3]> {
+	let step = 1.0;
+	let nsteps = 10;
+
+	let mut vertices = Vec::new();
+	for i in 0..nsteps {
+		for j in 0..nsteps {
+			vertices.push([
+				i as f64 * step,
+				y,
+				j as f64 * step,
+			]);
+		}
+	}
+
+	vertices
+}
+fn make_xy_plane(z: f64) -> Vec<[f64; 3]> {
+	let step = 1.0;
+	let nsteps = 10;
+
+	let mut vertices = Vec::new();
+	for i in 0..nsteps {
+		for j in 0..nsteps {
+			vertices.push([
+				i as f64 * step,
+				j as f64 * step,
+				z,
+			]);
+		}
+	}
+
+	vertices
+}
+fn make_yz_plane(x: f64) -> Vec<[f64; 3]> {
+	let step = 1.0;
+	let nsteps = 10;
+
+	let mut vertices = Vec::new();
+	for i in 0..nsteps {
+		for j in 0..nsteps {
+			vertices.push([
+				x,
+				i as f64 * step,
+				j as f64 * step,
+			]);
+		}
+	}
+
+	vertices
+}

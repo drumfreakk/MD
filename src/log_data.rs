@@ -63,40 +63,6 @@ impl<'a> DataLog<'a> {
 		zip(self.time.clone(), self.particle_vector.get(name)[index].clone())
 	}
 
-	/** Get a 3D (x, y, t) iterator over the particle vector values of a particle, drawn as a radius around the point.
-	For faster rendering, it skips over time_res elements.
-	*/
-	pub fn particle_vector_as_circles(&self, name: &str, index: usize, radius: f64, time_res: usize) -> Vec<(f64, f64, f64)> {
-		let v = &self.particle_vector.get(name)[index];
-		let mut out = Vec::new();
-		let circle_res_i = 4;
-		let circle_res = circle_res_i as f64;
-		for i in (0..self.time.len()).step_by(time_res) {
-			for j in -circle_res_i..=circle_res_i {
-				out.push((j as f64/circle_res + v[i].x,  (radius.powf(2.0) - (j as f64 / circle_res).powf(2.0)).sqrt() + v[i].y, self.time[i]));
-			}
-			for j in (-circle_res_i..=circle_res_i).rev() {
-				out.push((j as f64/circle_res + v[i].x, -(radius.powf(2.0) - (j as f64 / circle_res).powf(2.0)).sqrt() + v[i].y, self.time[i]));
-			}
-		}
-		return out;
-	}
-
-	/// Get a 3D sphere (using the Fibonacci sphere algorithm) at a radius around a particle vector at a given time index.
-	pub fn particle_vector_as_sphere(&self, name: &str, index: usize, radius: f64, time_index: usize) -> Vec<(f64, f64, f64)> {
-		let p = self.particle_vector.get(name)[index][time_index];
-		let mut out = Vec::new();
-		let circle_res_i: i32 = 1000;
-		let circle_res = circle_res_i as f64;
-		
-		for i in 0..circle_res_i {
-			let phi = (1.0 - 2.0 * i as f64 / circle_res).acos();
-			let theta = std::f64::consts::PI * (3.0 - 5_f64.sqrt()) * i as f64;
-			out.push((radius * theta.cos() * phi.sin() + p.x, radius * theta.sin() * phi.sin() + p.y, radius *  phi.cos() + p.z));
-		}
-		return out;
-	}
-
 	/// Create a global series and a particle series with a given name. 
 	pub fn add_particle_series(&mut self, name: &'a str) {
 		self.particle.add_series(name);

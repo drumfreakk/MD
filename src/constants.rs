@@ -1,8 +1,6 @@
 
 //! Several (natural) constants used in several places
 
-use crate::vectors::Vector;
-
 /* FORCEFIELD */
 // Temperature 
 /// Boltzmann Constant
@@ -41,7 +39,7 @@ pub const W: usize = 800;
 /// Height of the graph
 pub const H: usize = 600;
 /// Frame rate of the graph
-pub const FRAME_RATE: f64 = 5.0;
+pub const FRAME_RATE: f64 = 1.0;
 
 // Simulation
 /// Length of the simulation (time)

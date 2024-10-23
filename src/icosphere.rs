@@ -4,12 +4,7 @@
 Algorithm taken from <http://blog.andreaskahler.com/2009/06/creating-icosphere-mesh-in-code.html>
 */
 
-use crate::embedded_gfx::mesh::K3dMesh;
-use crate::embedded_gfx::mesh::Geometry;
-
-use embedded_graphics_core::pixelcolor::{Rgb888, WebColors};
 use std::collections::HashMap;
-
 
 use crate::vectors::Vector;
 

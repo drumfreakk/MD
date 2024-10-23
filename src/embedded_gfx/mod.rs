@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use camera::Camera;
 use embedded_graphics_core::pixelcolor::Rgb888;
 use embedded_graphics_core::pixelcolor::RgbColor;
@@ -11,8 +13,6 @@ use nalgebra::Vector3;
 pub mod camera;
 pub mod draw;
 pub mod mesh;
-pub mod framebuffer;
-
 
 #[derive(Debug)]
 pub enum DrawPrimitive {

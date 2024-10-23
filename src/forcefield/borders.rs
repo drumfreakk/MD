@@ -1,7 +1,6 @@
 
 //! Enforce borders of the system
 
-use crate::particles::Particle;
 use crate::vectors::Vector;
 use crate::constants::{BORDER_X, BORDER_Y, BORDER_Z, BORDER_4_EPSILON, BORDER_RANGE};
 
