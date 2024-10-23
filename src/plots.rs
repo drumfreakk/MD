@@ -4,7 +4,6 @@
 use crate::framebuffer::FrameBuffer;
 use embedded_graphics_core::pixelcolor::Rgb888;
 use embedded_graphics_core::prelude::Point;
-//use crate::vectors::Vector;
 
 pub struct Plot {
 	pub fb: FrameBuffer,
@@ -50,6 +49,10 @@ impl Plot {
 		   point[1] > self.coordinate_range[1][0] && point[1] < self.coordinate_range[1][1] {
 			self.fb.draw_point((point[0] * self.scale[0]) as i32 + self.zero[0], -(point[1] * self.scale[1]) as i32 + self.zero[1], color);
 		}
+
+	}
+
+	pub fn plot_series(&mut self, series: TODO, color: Rgb888) {
 
 	}
 }

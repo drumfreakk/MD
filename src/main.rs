@@ -183,8 +183,6 @@ fn main () -> Result<(), Box<dyn Error>> {
 				p[i].update(TIME_STEP);
 			}
 
-			plot.plot_point([t, t], Rgb888::new(255,255,255));
-
 			t += TIME_STEP;
 		} else {
 			let keys = sim_window.get_keys_pressed(KeyRepeat::Yes);
@@ -250,6 +248,9 @@ fn main () -> Result<(), Box<dyn Error>> {
 			}
 			
 			sim_window.update_with_buffer(sim_fb.borrow(), W, H)?;
+
+		//TODO: datalog fn with callback to plots to plot a point, define range in datalog	
+//			chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 0).map(|(t, v)| {(t, v.x)}), &RED,))?;
 			
 //			{
 //				let root = BitMapBackend::<BGRXPixel>::with_buffer_and_format(
@@ -264,7 +265,6 @@ fn main () -> Result<(), Box<dyn Error>> {
 //
 //					chart.configure_mesh().bold_line_style(&GREEN.mix(0.2)).light_line_style(&TRANSPARENT).draw()?;
 //					
-//					chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 0).map(|(t, v)| {(t, v.x)}), &RED,))?;
 //					chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 1).map(|(t, v)| {(t, v.x)}), &GREEN,))?;
 //					chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 2).map(|(t, v)| {(t, v.x)}), &MAGENTA,))?;
 //					chart.draw_series(LineSeries::new(data.global_as_iter("temperature"), &YELLOW,))?;
