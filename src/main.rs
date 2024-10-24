@@ -79,9 +79,13 @@ fn main () -> Result<(), Box<dyn Error>> {
 
 	//TODO: multiple graphs, split this file up
 
-	let mut p = vec![Particle::new(&Vector::new(1.0, 1.0, 1.0),  1.0, 3.0,  0.0, None, None),
-			 		 Particle::new(&Vector::new(4.0, 3.0, 1.0),     1.0, 1.0,  0.0, None, None),
-			 		 Particle::new(&Vector::new(1.0, 5.0, 1.0),     1.5, 1.0,  0.0, None, None)];
+	let mut p = vec![Particle::new(&Vector::new(1.0, 1.0, 1.0),  1.0, 3.0,     0.0),
+			 		 Particle::new(&Vector::new(4.0, 3.0, 1.0),     1.0, 1.0,  0.0),
+			 		 Particle::new(&Vector::new(1.0, 5.0, 1.0),     1.5, 1.0,  0.0)];
+
+	for i in 0..3 {
+		p.push(Particle::new(&Vector::new(1.0 + 2.0 * i as f64, 7.0, 9.0 - 2.0 * i as f64), 1.0, 1.0, 0.0));
+	}
 
 	let mut data = DataLog::new(p.len());
 
@@ -114,9 +118,9 @@ fn main () -> Result<(), Box<dyn Error>> {
 		spheres[i].set_position(p[i].pos.x, p[i].pos.y, p[i].pos.z);
 		spheres[i].set_scale(p[i].r);
 		spheres[i].set_render_mode(RenderMode::SolidLightDir(nalgebra::Vector3::new(0.0, 0.0, 1.0)));
+		spheres[i].set_color(Rgb888::new(255,0,0));
 	}
-	spheres[0].set_color(Rgb888::new(255,0,0));
-	spheres[1].set_color(Rgb888::new(0,255,0));
+	spheres[0].set_color(Rgb888::new(0,255,0));
 	spheres[2].set_color(Rgb888::new(0,0,255));
 
 	let mut last_plotted = 0.0;
@@ -134,8 +138,8 @@ fn main () -> Result<(), Box<dyn Error>> {
 				data.insert_particle_vector_len("accelleration", i, p[i].a);	
 			}
 			
-			let scale = temperature::get_scale(&p, 0.0, 50.0);
-			
+			let scale = if t > 50.0 { temperature::get_scale(&p, 0.0, 5.0) } else { 1.0 };
+
 			data.global.insert_into("temperature", temperature::get_temperature(&p));
 			data.global.insert_into("temperature_scale", scale);
 
@@ -232,46 +236,30 @@ fn main () -> Result<(), Box<dyn Error>> {
 			
 			sim_window.update_with_buffer(sim_fb.borrow(), W, H)?;
 
-			data.plot_global("temperature", last_plotted, plot.max_frequency(), |p1, p2| plot.plot_segment(p1, p2, Rgb888::new(255,0,0)));
-			last_plotted = t;
 
+			data.plot_global("temperature", last_plotted, plot.max_frequency(), |p1, p2| plot.plot_segment(p1, p2, Rgb888::new(255,0,0)));
+			//data.plot_global("energy_total", last_plotted, plot.max_frequency(), |p1, p2| plot.plot_segment(p1, p2, Rgb888::new(255,0,255)));
+			last_plotted = t;
 //			chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 0).map(|(t, v)| {(t, v.x)}), &RED,))?;
 			
-//			{
-//				let root = BitMapBackend::<BGRXPixel>::with_buffer_and_format(
-//					data_fb.borrow_mut(),
-//					(W as u32, H as u32),
-//				)?
-//				.into_drawing_area();
-//				{
-//					let mut chart = cs.clone().restore(&root);
-//					
-//					chart.plotting_area().fill(&BLACK)?;
+//			chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 1).map(|(t, v)| {(t, v.x)}), &GREEN,))?;
+//			chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 2).map(|(t, v)| {(t, v.x)}), &MAGENTA,))?;
+//			chart.draw_series(LineSeries::new(data.global_as_iter("temperature"), &YELLOW,))?;
+//	//		chart.draw_series(LineSeries::new(data.particle_as_iter("force_electric", 0), &CYAN,))?;
+//			//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("force_vdw", 0).map(|(t, v)| {(t, v.x)}), &BLUE,))?;
+//			//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("force_vdw", 1).map(|(t, v)| {(t, v.x)}), &CYAN,))?;
+//			//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("force_vdw", 2).map(|(t, v)| {(t, v.x)}), &YELLOW,))?;
+//			//chart.draw_series(LineSeries::new(data.particle_as_iter("energy_total", 0), &YELLOW,))?;
+//			//chart.draw_series(LineSeries::new(data.particle_as_iter("energy_total", 1), &WHITE,))?;
+//			//chart.draw_series(LineSeries::new(data.particle_as_iter("energy_total", 2), &CYAN,))?;
+////			chart.draw_series(LineSeries::new(data.global_as_iter("energy_total"), &WHITE,))?;
+//			//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 0).map(|(t, v)| {(v.x, v.y, t)}), &RED,))?;
+//			//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 1).map(|(t, v)| {(v.x, v.y, t)}), &GREEN,))?;
+//			//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 2).map(|(t, v)| {(v.x, v.y, t)}), &MAGENTA,))?;
 //
-//					chart.configure_mesh().bold_line_style(&GREEN.mix(0.2)).light_line_style(&TRANSPARENT).draw()?;
-//					
-//					chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 1).map(|(t, v)| {(t, v.x)}), &GREEN,))?;
-//					chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 2).map(|(t, v)| {(t, v.x)}), &MAGENTA,))?;
-//					chart.draw_series(LineSeries::new(data.global_as_iter("temperature"), &YELLOW,))?;
-//	//				chart.draw_series(LineSeries::new(data.particle_as_iter("force_electric", 0), &CYAN,))?;
-//					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("force_vdw", 0).map(|(t, v)| {(t, v.x)}), &BLUE,))?;
-//					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("force_vdw", 1).map(|(t, v)| {(t, v.x)}), &CYAN,))?;
-//					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("force_vdw", 2).map(|(t, v)| {(t, v.x)}), &YELLOW,))?;
-//					//chart.draw_series(LineSeries::new(data.particle_as_iter("energy_total", 0), &YELLOW,))?;
-//					//chart.draw_series(LineSeries::new(data.particle_as_iter("energy_total", 1), &WHITE,))?;
-//					//chart.draw_series(LineSeries::new(data.particle_as_iter("energy_total", 2), &CYAN,))?;
-////					chart.draw_series(LineSeries::new(data.global_as_iter("energy_total"), &WHITE,))?;
-//					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 0).map(|(t, v)| {(v.x, v.y, t)}), &RED,))?;
-//					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 1).map(|(t, v)| {(v.x, v.y, t)}), &GREEN,))?;
-//					//chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 2).map(|(t, v)| {(v.x, v.y, t)}), &MAGENTA,))?;
-//
-//					//chart.draw_series(LineSeries::new(data.particle_vector_as_circles("position", 0, p[0].r, 200), &RED.mix(0.5),))?;
-//					//chart.draw_series(LineSeries::new(data.particle_vector_as_circles("position", 1, p[1].r, 200), &GREEN.mix(0.5),))?;
-//					//chart.draw_series(LineSeries::new(data.particle_vector_as_circles("position", 2, p[2].r, 200), &MAGENTA.mix(0.5),))?;
-//					//chart.draw_series(LineSeries::new(f, &YELLOW,))?;
-//				}
-//				root.present()?;
-//			}
+//			//chart.draw_series(LineSeries::new(data.particle_vector_as_circles("position", 0, p[0].r, 200), &RED.mix(0.5),))?;
+//			//chart.draw_series(LineSeries::new(data.particle_vector_as_circles("position", 1, p[1].r, 200), &GREEN.mix(0.5),))?;
+//			//chart.draw_series(LineSeries::new(data.particle_vector_as_circles("position", 2, p[2].r, 200), &MAGENTA.mix(0.5),))?;
 			data_window.update_with_buffer(plot.fb.borrow(), W, H)?;
 
 			last_flushed = epoch;

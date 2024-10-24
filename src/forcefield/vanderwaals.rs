@@ -13,8 +13,8 @@ pub fn get_potential(radius: f64, total_distance: f64) -> f64 {
 	// r is dist, s is radius, e is well depth
   
 //TODO: cutoff
-	
-	let distance = total_distance - radius * 2_f64.powf(1.0/6.0);
+//TODO: is this right like this?	
+	let distance = total_distance - radius;// * 2_f64.powf(1.0/6.0);
 
 	let attraction = (radius / distance).powf(6.0);
 	let repulsion = attraction * attraction;
@@ -32,7 +32,7 @@ pub fn get_force(radius: f64, total_distance: f64) -> f64 {
 	// 4e ( 6 s^6 (r^-7 - 2 s^6 r^-13 )
 	// 6 * 4e s^6 r^-7 (1 - 2 s^6 r^-6)
 	let s6 = radius.powf(6.0);
-	let distance = total_distance - radius * 2_f64.powf(1.0/6.0);
+	let distance = total_distance - radius; //* 2_f64.powf(1.0/6.0);
 
 	return 6.0 * LJ_4_EPSILON * s6 * distance.powf(-7.0) * (1.0 - (2.0 * s6 * distance.powf(-6.0)));
 }

@@ -17,14 +17,14 @@ pub struct Particle {
 #[allow(dead_code)]
 impl Particle {
 	/// Create a new particle with given values
-	pub fn new(pos: &Vector, r: f64, m: f64, q: f64, v: Option<Vector>, a: Option<Vector>) -> Self {
+	pub fn new(pos: &Vector, r: f64, m: f64, q: f64) -> Self {
 		Particle{
 			pos: *pos,
 			r,
 			m,
 			q,
-			v: v.unwrap_or(Vector::zero()),
-			a: a.unwrap_or(Vector::zero()),
+			v: Vector::zero(),
+			a: Vector::zero(),
 		}
 	}
 

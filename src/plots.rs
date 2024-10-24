@@ -2,7 +2,7 @@
 //! Custom plotting library
 
 use crate::framebuffer::FrameBuffer;
-use embedded_graphics_core::pixelcolor::Rgb888;
+use embedded_graphics_core::pixelcolor::{Rgb888, RgbColor};
 
 /// An instance of a plot, including framebuffer.
 pub struct Plot {
@@ -36,13 +36,20 @@ impl Plot {
 
 		plot.fb.fill_buffer(background);
 
-		for y in margin..(h - margin) {
+		for y in margin..=(h - margin) {
 			plot.fb.draw_point((margin, y), color);
 			plot.fb.draw_point((w - margin, y), color);
 		}
 
 		plot.fb.draw_horizontal_line([margin, margin],     [w - margin, margin], color);
 		plot.fb.draw_horizontal_line([margin, h - margin], [w - margin, h - margin], color);
+
+		let zero_line = plot.coordinate_to_pixel((0.0, 0.0));
+		let shade = Rgb888::new(color.r() / 2, color.g() / 2, color.b() / 2);
+
+		for x in (margin+1)..(w-margin) {
+			plot.fb.draw_point((x, zero_line.1), shade);
+		}
 
 		plot
 	}
