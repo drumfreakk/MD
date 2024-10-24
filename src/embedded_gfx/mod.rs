@@ -1,5 +1,10 @@
 #![allow(dead_code)]
 
+/*! Simple 3D graphics engine.
+
+Original code taken from <https://github.com/Kezii/embedded-gfx>.
+*/
+
 use camera::Camera;
 use embedded_graphics_core::pixelcolor::Rgb888;
 use embedded_graphics_core::pixelcolor::RgbColor;
@@ -14,6 +19,7 @@ pub mod camera;
 pub mod draw;
 pub mod mesh;
 
+/// 2D primitive type to draw.
 #[derive(Debug)]
 pub enum DrawPrimitive {
 	ColoredPoint(Point2<i32>, Rgb888),
@@ -21,6 +27,7 @@ pub enum DrawPrimitive {
 	ColoredTriangle([Point2<i32>; 3], Rgb888),
 }
 
+/// 3D graphics engine.
 pub struct K3dengine {
 	pub camera: Camera,
 	width: u16,
@@ -28,6 +35,7 @@ pub struct K3dengine {
 }
 
 impl K3dengine {
+	/// Create a new engine.
 	pub fn new(width: u16, height: u16) -> K3dengine {
 		K3dengine {
 			camera: Camera::new(width as f64 / height as f64),
@@ -36,6 +44,7 @@ impl K3dengine {
 		}
 	}
 
+	/// Transform a point using a matrix (?).
 	fn transform_point(&self, point: &[f64; 3], model_matrix: Matrix4<f64>) -> Option<Point3<i32>> {
 		let point = nalgebra::Vector4::new(point[0], point[1], point[2], 1.0);
 		let point = model_matrix * point;
@@ -56,6 +65,7 @@ impl K3dengine {
 		))
 	}
 
+	/// Transform multpile points using a matrix (?).
 	fn transform_points<const N: usize>(
 		&self,
 		indices: &[usize; N],
@@ -71,6 +81,7 @@ impl K3dengine {
 		Some(ret)
 	}
 
+	/// Render multiple meshes. The callback should draw a DrawPrimitive.
 	pub fn render<'a, MS, F>(&self, meshes: MS, mut callback: F)
 	where
 		MS: IntoIterator<Item = &'a K3dMesh<'a>>,

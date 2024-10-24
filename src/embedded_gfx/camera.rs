@@ -1,7 +1,10 @@
-use std::f64::consts;
 
+//! The camera for embedded-gfx.
+
+use std::f64::consts;
 use nalgebra::{Isometry3, Perspective3, Point3, Vector3};
 
+/// The camera.
 pub struct Camera {
 	pub position: Point3<f64>,
 	fov: f64,
@@ -15,6 +18,7 @@ pub struct Camera {
 }
 
 impl Camera {
+	/// Create a new camera.
 	pub fn new(aspect_ratio: f64) -> Camera {
 		let mut ret = Camera {
 			position: Point3::new(0.0, 0.0, 0.0),
@@ -33,29 +37,34 @@ impl Camera {
 		ret
 	}
 
+	/// Set the position of the camera.
 	pub fn set_position(&mut self, pos: Point3<f64>) {
 		self.position = pos;
 
 		self.update_view();
 	}
 
+	/// Set the field of view of the camera.
 	pub fn set_fovy(&mut self, fovy: f64) {
 		self.fov = fovy;
 
 		self.update_projection();
 	}
 
+	/// Set where the camera is looking.
 	pub fn set_target(&mut self, target: Point3<f64>) {
 		self.target = target;
 		self.update_view();
 	}
 
+	/// Get the direction the camera is looking in.
 	pub fn get_direction(&self) -> Vector3<f64> {
 		let transpose = self.view_matrix; //.transpose();
 
 		Vector3::new(transpose[(2, 0)], transpose[(2, 1)], transpose[(2, 2)])
 	}
 
+	/// ?
 	fn update_view(&mut self) {
 		let view = Isometry3::look_at_rh(&self.position, &self.target, &Vector3::y());
 
@@ -63,6 +72,7 @@ impl Camera {
 		self.vp_matrix = self.projection_matrix * self.view_matrix;
 	}
 
+	/// ?
 	fn update_projection(&mut self) {
 		let projection = Perspective3::new(self.aspect_ratio, self.fov, self.near, self.far);
 		self.projection_matrix = projection.to_homogeneous();

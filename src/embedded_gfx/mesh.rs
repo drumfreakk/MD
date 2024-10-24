@@ -1,6 +1,10 @@
+
+//! The mesh to store 3D objects.
+
 use embedded_graphics_core::pixelcolor::{Rgb888, WebColors};
 use nalgebra::{Point3, Similarity3, UnitQuaternion, Vector3};
 
+/// How to render a Geometry object.
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum RenderMode {
 	Points,
@@ -8,6 +12,8 @@ pub enum RenderMode {
 	Solid,
 	SolidLightDir(Vector3<f64>),
 }
+
+/// A 3D object, stored as vertices with lines and faces connecting them.
 #[derive(Debug, Default, Copy, Clone)]
 pub struct Geometry<'a> {
 	pub vertices: &'a [[f64; 3]],
@@ -18,6 +24,7 @@ pub struct Geometry<'a> {
 }
 
 impl<'a> Geometry<'a> {
+	/// Check if a Geometry object is valid.
 	fn check_validity(&self) -> bool {
 		if self.vertices.is_empty() {
 			println!("Vertices are empty");
@@ -49,6 +56,7 @@ impl<'a> Geometry<'a> {
 		true
 	}
 
+	/// Create lines along the edges of faces (?).
 	pub fn lines_from_faces(faces: &[[usize; 3]]) -> Vec<(usize, usize)> {
 		let mut lines = Vec::new();
 		for face in faces {
@@ -68,6 +76,7 @@ impl<'a> Geometry<'a> {
 	}
 }
 
+/// A mesh representing a 3D object and how it should be displayed.
 #[derive(Copy, Clone)]
 pub struct K3dMesh<'a> {
 	pub similarity: Similarity3<f64>,
@@ -79,6 +88,7 @@ pub struct K3dMesh<'a> {
 }
 
 impl<'a> K3dMesh<'a> {
+	/// Create a new mesh based on a Geometry object.
 	pub fn new(geometry: Geometry) -> K3dMesh {
 		assert!(geometry.check_validity());
 		let sim = Similarity3::new(Vector3::new(0.0, 0.0, 0.0), nalgebra::zero(), 1.0);
@@ -91,14 +101,17 @@ impl<'a> K3dMesh<'a> {
 		}
 	}
 
+	/// Set the color of the mesh.
 	pub fn set_color(&mut self, color: Rgb888) {
 		self.color = color;
 	}
 
+	/// Set the render mode of the mesh.
 	pub fn set_render_mode(&mut self, mode: RenderMode) {
 		self.render_mode = mode;
 	}
 
+	/// Set the position of the object.
 	pub fn set_position(&mut self, x: f64, y: f64, z: f64) {
 		self.similarity.isometry.translation.x = x;
 		self.similarity.isometry.translation.y = y;
@@ -106,15 +119,18 @@ impl<'a> K3dMesh<'a> {
 		self.update_model_matrix();
 	}
 
+	/// Get the position of the object.
 	pub fn get_position(&self) -> Point3<f64> {
 		self.similarity.isometry.translation.vector.into()
 	}
 
+	/// Set the rotation of the object.
 	pub fn set_attitude(&mut self, roll: f64, pitch: f64, yaw: f64) {
 		self.similarity.isometry.rotation = UnitQuaternion::from_euler_angles(roll, pitch, yaw);
 		self.update_model_matrix();
 	}
 
+	/// ?
 	pub fn set_target(&mut self, target: Point3<f64>) {
 		let view = Similarity3::look_at_rh(
 			&self.similarity.isometry.translation.vector.into(),
@@ -127,6 +143,7 @@ impl<'a> K3dMesh<'a> {
 		self.update_model_matrix();
 	}
 
+	/// Set the size of the object.
 	pub fn set_scale(&mut self, s: f64) {
 		if s == 0.0 {
 			return;
@@ -135,6 +152,7 @@ impl<'a> K3dMesh<'a> {
 		self.update_model_matrix();
 	}
 
+	/// ?
 	fn update_model_matrix(&mut self) {
 		self.model_matrix = self.similarity.to_homogeneous();
 	}

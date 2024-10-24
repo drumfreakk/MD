@@ -1,8 +1,12 @@
+
+//! Functions to draw DrawPrimitives.
+
 use embedded_graphics_core::prelude::Point;
 use embedded_graphics_core::pixelcolor::Rgb888;
 use crate::DrawPrimitive;
 use crate::framebuffer::FrameBuffer;
 
+/// Draw a DrawPrimitive to a framebuffer.
 #[inline]
 pub fn draw(primitive: DrawPrimitive, fb: &mut FrameBuffer) {
 	match primitive {
@@ -44,6 +48,7 @@ pub fn draw(primitive: DrawPrimitive, fb: &mut FrameBuffer) {
 	}
 }
 
+/// Draw a solid flat-bottomed triangle to a framebuffer.
 fn fill_bottom_flat_triangle(p1: Point, p2: Point, p3: Point, color: Rgb888, fb: &mut FrameBuffer){
 	let invslope1 = (p2.x - p1.x) as f64 / (p2.y - p1.y) as f64;
 	let invslope2 = (p3.x - p1.x) as f64 / (p3.y - p1.y) as f64;
@@ -64,6 +69,7 @@ fn fill_bottom_flat_triangle(p1: Point, p2: Point, p3: Point, color: Rgb888, fb:
 	}
 }
 
+/// Draw a solid flat-topped triangle to a framebuffer.
 fn fill_top_flat_triangle(p1: Point, p2: Point, p3: Point, color: Rgb888, fb: &mut FrameBuffer){
 	let invslope1 = (p3.x - p1.x) as f64 / (p3.y - p1.y) as f64;
 	let invslope2 = (p3.x - p2.x) as f64 / (p3.y - p2.y) as f64;
