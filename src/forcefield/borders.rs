@@ -4,10 +4,12 @@
 use crate::vectors::Vector;
 use crate::constants::{BORDER_X, BORDER_Y, BORDER_Z, BORDER_4_EPSILON, BORDER_RANGE};
 
+/// Calculate the potential at a given range.
 fn get_potential_range(radius: f64, range: f64) -> f64 {
 	BORDER_4_EPSILON * (radius / range).powf(12.0)
 }
 
+/// Calculate the magnitude of the force at a given range.
 fn get_force_range(radius: f64, range: f64) -> f64 {
 	BORDER_4_EPSILON * radius.powf(12.0) * 12.0 * range.powf(-13.0)
 }

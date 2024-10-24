@@ -52,6 +52,24 @@ impl<'a> DataLog<'a> {
 	pub fn global_as_iter(&self, name: &str) -> Zip<IntoIter<f64>, IntoIter<f64>> {
 		zip(self.time.clone(), self.global.get(name).clone())
 	}
+
+	/// Plot a global value from a given timestep.
+	/// Plots at a given frequency, so does not plot all values.
+	/// The callback should plot a line segment between two points. 
+	pub fn plot_global<F>(&self, name: &str, from: f64, frequency: f64, mut callback: F) where F: FnMut((f64, f64), (f64, f64)) {
+		let mut t = 0.0;
+		let mut iter = self.global_as_iter(name);
+		let mut prev = iter.next().unwrap(); 
+		for p in iter {
+			if p.0 > t * frequency {
+				if p.0 > from {
+					callback(prev, p);
+				}
+				t += 1.0;
+				prev = p;
+			}
+		}
+	}
 	
 	/// Get an iterator of the form (time: f64, value: f64) over a value of a particle.
 	pub fn particle_as_iter(&self, name: &str, index: usize) -> Zip<IntoIter<f64>, IntoIter<f64>> {

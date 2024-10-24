@@ -5,37 +5,16 @@ Algorithm taken from <http://blog.andreaskahler.com/2009/06/creating-icosphere-m
 */
 
 use std::collections::HashMap;
-
 use crate::vectors::Vector;
 
-//public class IcoSphereCreator
-//{
-//	private struct TriangleIndices
-//	{
-//		public int v1;
-//		public int v2;
-//		public int v3;
-//
-//		public TriangleIndices(int v1, int v2, int v3)
-//		{
-//			this.v1 = v1;
-//			this.v2 = v2;
-//			this.v3 = v3;
-//		}
-//	}
-//
-//	private MeshGeometry3D geometry;
-//	private int index;
-//	private Dictionary<Int64, int> middlePointIndexCache;
-
-
-// add vertex to mesh, fix position to be on unit sphere, return index
+/// Adds a vertex to the mesh, fixing it to be on the unit sphere.
 fn add_vertex(vertices: &mut Vec::<[f64; 3]>, x: f64, y: f64, z: f64) {
 	let l = (x * x + y * y + z * z).sqrt();
 	vertices.push([x/l, y/l, z/l]);
 //		return index++;
 }
 
+/// Get the normals of the icosphere.
 pub fn get_normals(vertices: &Vec::<[f64; 3]>, faces: &Vec::<[usize; 3]>) -> Vec::<[f64; 3]> {
 	let mut out = Vec::new();
 
@@ -60,7 +39,7 @@ pub fn get_normals(vertices: &Vec::<[f64; 3]>, faces: &Vec::<[usize; 3]>) -> Vec
 	out
 }
 
-// return index of point in the middle of p1 and p2
+/// Return the index of the point in the middle of p1 and p2.
 fn get_middle_point(vertices: &mut Vec::<[f64; 3]>, cache: &mut HashMap::<i64, usize>, p1: usize, p2: usize) -> usize {
 	let first_is_smaller = p1 < p2;
 	let smaller: i64 = if first_is_smaller { p1 } else { p2 } as i64;
@@ -81,36 +60,8 @@ fn get_middle_point(vertices: &mut Vec::<[f64; 3]>, cache: &mut HashMap::<i64, u
 	cache.insert(key, l);
 	l
 }
-//	private int getMiddlePoint(int p1, int p2)
-//	{
-//		// first check if we have it already
-//		bool firstIsSmaller = p1 < p2;
-//		Int64 smallerIndex = firstIsSmaller ? p1 : p2;
-//		Int64 greaterIndex = firstIsSmaller ? p2 : p1;
-//		Int64 key = (smallerIndex << 32) + greaterIndex;
-//
-//		int ret;
-//		if (this.middlePointIndexCache.TryGetValue(key, out ret))
-//		{
-//			return ret;
-//		}
-//
-//		// not in cache, calculate it
-//		Point3D point1 = this.geometry.Positions[p1];
-//		Point3D point2 = this.geometry.Positions[p2];
-//		Point3D middle = new Point3D(
-//			(point1.X + point2.X) / 2.0,
-//			(point1.Y + point2.Y) / 2.0,
-//			(point1.Z + point2.Z) / 2.0);
-//
-//		// add vertex makes sure point is on unit sphere
-//		int i = addVertex(middle);
-//
-//		// store it, return index
-//		this.middlePointIndexCache.Add(key, i);
-//		return i;
-//	}
 
+/// Create an icosphere of radius 1 at the origin, with a given recursion level (level of detail).
 pub fn create_icosphere(recursion_level: usize) -> (Vec::<[f64; 3]>, Vec::<[usize; 3]>) {
 	let mut vertices = Vec::<[f64; 3]>::new();
 	let mut faces = Vec::<[usize; 3]>::new();

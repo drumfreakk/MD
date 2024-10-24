@@ -26,10 +26,7 @@ use crate::framebuffer::FrameBuffer;
 use crate::plots::Plot;
 
 use minifb::{Window, WindowOptions, Key, KeyRepeat};
-use plotters::prelude::*;
-use plotters_bitmap::bitmap_pixel::BGRXPixel;
-use plotters_bitmap::BitMapBackend;
-use std::borrow::{Borrow, BorrowMut};
+use std::borrow::Borrow;
 use std::error::Error;
 use std::time::SystemTime;
 
@@ -122,6 +119,8 @@ fn main () -> Result<(), Box<dyn Error>> {
 	spheres[1].set_color(Rgb888::new(0,255,0));
 	spheres[2].set_color(Rgb888::new(0,0,255));
 
+	let mut last_plotted = 0.0;
+
 	while sim_window.is_open()  &&  !sim_window.is_key_down(Key::Escape) &&
 		  data_window.is_open() && !data_window.is_key_down(Key::Escape) {
 		let epoch = SystemTime::now().duration_since(start_ts).unwrap().as_secs_f64();
@@ -188,29 +187,13 @@ fn main () -> Result<(), Box<dyn Error>> {
 			let keys = sim_window.get_keys_pressed(KeyRepeat::Yes);
 			for key in keys {
 				match key {
-					Key::Up => {
-						phi += 0.05;
-					}
-					Key::Down => {
-						phi -= 0.05;
-					}
-					Key::Left => {
-						theta -= 0.05;
-					}
-					Key::Right => {
-						theta += 0.05;
-					}
-					Key::Minus => {
-						if zoom > 0.1 {
-							zoom += 0.1;
-						}
-					}
-					Key::Equal => {
-						zoom -= 0.1;
-					}
-					_ => {
-						continue;
-					}
+					Key::Up => { phi += 0.05; }
+					Key::Down => { phi -= 0.05; }
+					Key::Left => { theta -= 0.05; }
+					Key::Right => { theta += 0.05; }
+					Key::Minus => { if zoom > 0.1 { zoom += 0.1; }}
+					Key::Equal => { zoom -= 0.1; }
+					_ => { continue; }
 				}
 			}
 			if phi > 3.15 {
@@ -249,7 +232,9 @@ fn main () -> Result<(), Box<dyn Error>> {
 			
 			sim_window.update_with_buffer(sim_fb.borrow(), W, H)?;
 
-		//TODO: datalog fn with callback to plots to plot a point, define range in datalog	
+			data.plot_global("temperature", last_plotted, plot.max_frequency(), |p1, p2| plot.plot_segment(p1, p2, Rgb888::new(255,0,0)));
+			last_plotted = t;
+
 //			chart.draw_series(LineSeries::new(data.particle_vector_as_iter("position", 0).map(|(t, v)| {(t, v.x)}), &RED,))?;
 			
 //			{

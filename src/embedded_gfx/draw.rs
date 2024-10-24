@@ -2,18 +2,17 @@ use embedded_graphics_core::prelude::Point;
 use embedded_graphics_core::pixelcolor::Rgb888;
 use crate::DrawPrimitive;
 use crate::framebuffer::FrameBuffer;
-use crate::constants::{W, H};
 
 #[inline]
 pub fn draw(primitive: DrawPrimitive, fb: &mut FrameBuffer) {
 	match primitive {
 		DrawPrimitive::Line([p1, p2], color) => {
 			for (x, y) in line_drawing::Bresenham::new((p1.x, p1.y), (p2.x, p2.y)) {
-				fb.draw_point(x, y, color);
+				fb.draw_point((x, y), color);
 			}
 		}
 		DrawPrimitive::ColoredPoint(p, c) => {
-			fb.draw_point(p.x, p.y, c);
+			fb.draw_point((p.x, p.y), c);
 		}
 		DrawPrimitive::ColoredTriangle(mut vertices, color) => {
 			//sort vertices by y
